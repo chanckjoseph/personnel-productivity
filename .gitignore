@@ -1,0 +1,6 @@
+__pycache__/
+*.docx
+!reference.docx
+venv/
+.env
+.DS_Store

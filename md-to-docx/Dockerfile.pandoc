@@ -1,0 +1,37 @@
+FROM pandoc/extra:latest-ubuntu
+
+# Add Google Chrome signing key, repo and install dependencies
+# We use keys directly to avoid apt-key deprecation warning
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+    && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" | tee /etc/apt/sources.list.d/google-chrome.list \
+    && apt-get update && apt-get install -y \
+    google-chrome-stable \
+    nodejs \
+    npm \
+    libxss1 \
+    libasound2t64 \
+    --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install mermaid-filter
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/google-chrome
+
+# Install mermaid-filter globally
+RUN npm install -g mermaid-filter@1.4.6 --unsafe-perm=true
+
+# Create a puppeteer config file in a known location
+RUN echo '{"executablePath": "/usr/bin/google-chrome", "args": ["--no-sandbox", "--disable-setuid-sandbox"]}' > /puppeteer-config.json
+
+# Tell mermaid-filter/puppeteer where config is? It defaults to cwd.
+# We will copy it to working dir if needed, or pass it via -p if supported.
+# mermaid-filter supports -p argument for puppeteer config.
+
+WORKDIR /data
+
+# Default command uses pandoc
+ENTRYPOINT ["pandoc"]

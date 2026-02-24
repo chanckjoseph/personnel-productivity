@@ -35,3 +35,11 @@ WORKDIR /data
 
 # Default command uses pandoc
 ENTRYPOINT ["pandoc"]
+RUN apt-get update && apt-get install -y python3 python3-pip python3-venv && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY requirements.txt .
+RUN python3 -m pip install --break-system-packages -r requirements.txt
+COPY . .
+WORKDIR /app
+ENTRYPOINT []
+CMD ["/bin/bash"]

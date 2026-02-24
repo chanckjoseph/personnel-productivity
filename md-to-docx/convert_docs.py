@@ -6,7 +6,10 @@ import shutil
 
 # Configuration
 DOCKER_IMAGE_NAME = "covpay-docs-builder"
-DOCKERFILE_PATH = "Dockerfile.pandoc"
+# Assume script is in md-to-docx/ and Dockerfile is in root
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(SCRIPT_DIR)
+DOCKERFILE_PATH = os.path.join(PROJECT_ROOT, "Dockerfile")
 
 def run_command(command, cwd=None):
     """Running a shell command and printing output."""
@@ -46,10 +49,11 @@ def build_docker_image():
     """Build the docker image if it doesn't exist."""
     print(f"Building Docker image '{DOCKER_IMAGE_NAME}'...")
     if not os.path.exists(DOCKERFILE_PATH):
-        print(f"Error: {DOCKERFILE_PATH} not found.")
+        print(f"Error: {DOCKERFILE_PATH} not found. Please ensure Dockerfile is at project root.")
         sys.exit(1)
-    
-    success = run_command(f"docker build -t {DOCKER_IMAGE_NAME} -f {DOCKERFILE_PATH} .")
+
+    # Use PROJECT_ROOT as build context
+    success = run_command(f"docker build -t {DOCKER_IMAGE_NAME} -f \"{DOCKERFILE_PATH}\" \"{PROJECT_ROOT}\"")
     if not success:
         print("Failed to build Docker image.")
         sys.exit(1)
@@ -127,7 +131,9 @@ def convert_file(input_file):
     docker_cmd = (
         f'docker run --rm '
         f'-v "{current_dir}:/data" '
+        f'-w /data '
         f'{DOCKER_IMAGE_NAME} '
+        f'pandoc '
         f'"{temp_filename}" -o "{output_filename}" '
         f'-F mermaid-filter {reference_arg}'
     )
@@ -156,9 +162,12 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # 1. Check/Build Docker Image
-    if not check_docker_image_exists(DOCKER_IMAGE_NAME):
+    is_image_present = check_docker_image_exists(DOCKER_IMAGE_NAME)
+    if not is_image_present:
         build_docker_image()
     else:
+        # Re-build if Dockerfile changed? For now, assume manual rebuild if needed or enforce build
+        # To be safe for multi-tool env, maybe just verify existence
         print(f"Docker image '{DOCKER_IMAGE_NAME}' found.")
 
     # Feature: Generate default reference doc if requested
@@ -168,7 +177,9 @@ if __name__ == "__main__":
         docker_cmd = (
             f'docker run --rm '
             f'-v "{current_dir}:/data" '
+            f'-w /data '
             f'{DOCKER_IMAGE_NAME} '
+            f'pandoc '
             f'-o "reference.docx" --print-default-data-file reference.docx'
         )
         run_command(docker_cmd)

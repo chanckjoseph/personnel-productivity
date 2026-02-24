@@ -6,7 +6,7 @@ import webbrowser
 
 IMAGE_NAME = "personnel-productivity"
 CONTAINER_NAME = "personnel-app"
-PORT = 8000
+PORT = 8989
 
 def run_command(command, check=True):
     print(f"Running: {command}")

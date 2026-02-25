@@ -1,0 +1,166 @@
+:root {
+    --primary-color: #4f46e5;
+    --primary-hover: #4338ca;
+    --secondary-color: #64748b;
+    --success-color: #10b981;
+    --bg-color: #f8fafc;
+    --card-bg: #ffffff;
+    --text-color: #1e293b;
+    --border-color: #e2e8f0;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    line-height: 1.5;
+}
+
+.container {
+    max-width: 900px;
+    margin: 40px auto;
+    padding: 0 20px;
+}
+
+header {
+    text-align: center;
+    margin-bottom: 40px;
+}
+
+header h1 {
+    font-size: 2.5rem;
+    margin-bottom: 10px;
+    color: var(--primary-color);
+}
+
+.card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-bottom: 30px;
+    border: 1px solid var(--border-color);
+}
+
+h2 {
+    margin-top: 0;
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+/* Upload Area */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 8px;
+    padding: 40px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.upload-area:hover, .upload-area.dragover {
+    border-color: var(--primary-color);
+    background-color: #eef2ff;
+}
+
+#file-info {
+    margin-top: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #f1f5f9;
+    padding: 10px 20px;
+    border-radius: 6px;
+}
+
+.hidden {
+    display: none !important;
+}
+
+/* Git Section */
+.git-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+#git-status-list {
+    background: #1e293b;
+    color: #e2e8f0;
+    padding: 15px;
+    border-radius: 6px;
+    font-family: monospace;
+    max-height: 200px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+.commit-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    resize: vertical;
+    min-height: 80px;
+}
+
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+/* Buttons */
+.btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.2s;
+    font-size: 1rem;
+}
+
+.primary {
+    background-color: var(--primary-color);
+    color: white;
+}
+
+.primary:hover {
+    background-color: var(--primary-hover);
+}
+
+.secondary {
+    background-color: var(--secondary-color);
+    color: white;
+}
+
+.secondary:hover {
+    background-color: #475569;
+}
+
+.success {
+    background-color: var(--success-color);
+    color: white;
+}
+
+.success:hover {
+    background-color: #059669;
+}
+
+#conversion-status {
+    margin-top: 15px;
+    font-weight: 500;
+}
+
+.success-msg { color: var(--success-color); }
+.error-msg { color: #ef4444; }

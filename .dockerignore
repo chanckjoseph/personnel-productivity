@@ -1,0 +1,11 @@
+venv
+__pycache__
+.git
+.gitignore
+.pat
+.username
+tmp
+test_output.docx
+debug_check.py
+test_debug.md
+*.pyc

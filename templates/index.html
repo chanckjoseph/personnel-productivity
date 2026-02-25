@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Personnel Productivity Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Productivity Dashboard</h1>
+            <p>Manage your tasks and conversions in one place.</p>
+        </header>
+
+        <main>
+            <!-- MD to DOCX Converter Section -->
+            <section class="card">
+                <h2>📄 Markdown to DOCX Converter</h2>
+                <div class="upload-area" id="drop-zone">
+                    <p>Drag & drop your .md file here or click to upload</p>
+                    <input type="file" id="file-input" accept=".md" hidden>
+                </div>
+                <div id="file-info" class="hidden">
+                    <span id="filename"></span>
+                    <button id="convert-btn" class="btn primary">Convert to DOCX</button>
+                </div>
+                <div id="conversion-status"></div>
+            </section>
+
+            <!-- API Documentation Section -->
+            <section class="card">
+                <h2>📚 API Documentation</h2>
+                <p>Explore the full interactive API documentation and test endpoints directly.</p>
+                <div style="margin-top: 15px;">
+                    <a href="/docs" class="btn secondary" target="_blank">Open Swagger UI</a>
+                    <a href="/redoc" class="btn secondary" target="_blank" style="background-color: #e67e22;">Open ReDoc</a>
+                </div>
+            </section>
+        </main>
+    </div>
+    <script src="/static/script.js"></script>
+</body>
+</html>

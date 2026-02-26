@@ -43,9 +43,14 @@ def get_git_remote_url():
     except Exception:
         return ""
 
-def commit_changes():
+def commit_changes(message=None):
     # Check status
-    status = subprocess.getoutput("git status --porcelain").strip()
+    try:
+        status = subprocess.getoutput("git status --porcelain").strip()
+    except Exception:
+         print("Error getting git status.")
+         return
+
     if not status:
         print("No changes to commit.")
         return
@@ -54,13 +59,18 @@ def commit_changes():
     print("Files changed:")
     print(status)
     
-    confirm = input("Do you want to commit these changes? (Y/n): ").strip().lower()
-    if confirm != 'n':
+    if message:
+        print(f"Auto-committing with message: {message}")
         subprocess.run(["git", "add", "."], check=True)
-        message = input("Enter commit message: ").strip()
-        if not message:
-            message = "Update"
         subprocess.run(["git", "commit", "-m", message], check=True)
+    else:
+        confirm = input("Do you want to commit these changes? (Y/n): ").strip().lower()
+        if confirm != 'n':
+            subprocess.run(["git", "add", "."], check=True)
+            message = input("Enter commit message: ").strip()
+            if not message:
+                message = "Update"
+            subprocess.run(["git", "commit", "-m", message], check=True)
 
 def push_changes(username, pat, repo_name):
     # Construct the authed URL
@@ -133,7 +143,12 @@ def main():
     except Exception:
         pass
 
-    commit_changes()
+    import sys
+    commit_msg = None
+    if len(sys.argv) > 1:
+        commit_msg = " ".join(sys.argv[1:])
+    
+    commit_changes(commit_msg)
     
     # 4. Construct Remote URL
     default_repo = "personnel-productivity"

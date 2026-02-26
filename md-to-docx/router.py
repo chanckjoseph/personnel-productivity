@@ -26,6 +26,22 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 def _set_cell_borders(cell):
     tc = cell._tc
     tc_pr = tc.get_or_add_tcPr()
+    
+    # Set margins
+    tc_mar = tc_pr.find(qn('w:tcMar'))
+    if tc_mar is None:
+        tc_mar = OxmlElement('w:tcMar')
+        tc_pr.append(tc_mar)
+        
+    for side, width in [('top', 100), ('bottom', 100), ('left', 100), ('right', 100)]:
+        node = tc_mar.find(qn(f'w:{side}'))
+        if node is None:
+            node = OxmlElement(f'w:{side}')
+            tc_mar.append(node)
+        node.set(qn('w:w'), str(width))
+        node.set(qn('w:type'), 'dxa')
+
+    # Set borders
     tc_borders = tc_pr.find(qn('w:tcBorders'))
     if tc_borders is None:
         tc_borders = OxmlElement('w:tcBorders')
@@ -37,9 +53,10 @@ def _set_cell_borders(cell):
             element = OxmlElement(f'w:{edge}')
             tc_borders.append(element)
         element.set(qn('w:val'), 'single')
-        element.set(qn('w:sz'), '8')
+        element.set(qn('w:sz'), '4') # Reduced from 8 to make it less heavy
         element.set(qn('w:space'), '0')
-        element.set(qn('w:color'), '000000')
+        element.set(qn('w:color'), 'AAAAAA') # Lighter gray border instead of black
+
 
 
 def _set_cell_shading(cell, fill='D9E2F3'):
@@ -64,32 +81,87 @@ def _set_header_row_style(table):
             for run in paragraph.runs:
                 run.bold = True
                 run.font.name = 'Arial'
-                run.font.size = Pt(10)
+                run.font.size = Pt(11)
                 run.font.color.rgb = RGBColor(0, 0, 0)
 
 
-def _enforce_document_styles(doc):
-    normal = doc.styles['Normal']
-    normal.font.name = 'Arial'
-    normal.font.size = Pt(11)
 
+def _enforce_document_styles(doc):
+    # Enforce base font settings on Normal and Body Text
+    for style_name in ['Normal', 'Body Text']:
+        if style_name in doc.styles:
+            style = doc.styles[style_name]
+            style.font.name = 'Arial'
+            style.font.size = Pt(11)
+            style.font.color.rgb = RGBColor(0, 0, 0)
+            style.paragraph_format.space_after = Pt(8)
+            style.paragraph_format.line_spacing = 1.15
+
+    # Enforce list styles to match body
+    for style_name in ['List Paragraph', 'List Bullet', 'List Number']:
+        if style_name in doc.styles:
+            style = doc.styles[style_name]
+            style.font.name = 'Arial'
+            style.font.size = Pt(11)
+            style.paragraph_format.space_after = Pt(4)
+
+    # Tweak Headings for better hierarchy and artistic contrast
+    
+    # Option A: Modern Corporate (Unified Dark Navy for all headers)
+    # Using RGB(31, 78, 121) -> #1F4E79 (Classic Deep Navy)
+    
+    # Heading 1: Major Document Sections
     heading_1 = doc.styles['Heading 1']
     heading_1.font.name = 'Arial'
-    heading_1.font.size = Pt(24)
+    heading_1.font.size = Pt(20)
     heading_1.font.bold = True
-    heading_1.font.color.rgb = RGBColor(0, 51, 102)
+    heading_1.font.color.rgb = RGBColor(31, 78, 121) 
+    heading_1.paragraph_format.space_before = Pt(24)
+    heading_1.paragraph_format.space_after = Pt(12)
 
+    # Heading 2: Main Topics 
     heading_2 = doc.styles['Heading 2']
     heading_2.font.name = 'Arial'
-    heading_2.font.size = Pt(18)
+    heading_2.font.size = Pt(16)
     heading_2.font.bold = True
-    heading_2.font.color.rgb = RGBColor(0, 85, 164)
+    heading_2.font.color.rgb = RGBColor(31, 78, 121) # Same Deep Navy
+    heading_2.paragraph_format.space_before = Pt(18)
+    heading_2.paragraph_format.space_after = Pt(10)
 
+    # Heading 3: Specific Items 
     heading_3 = doc.styles['Heading 3']
     heading_3.font.name = 'Arial'
     heading_3.font.size = Pt(14)
     heading_3.font.bold = True
-    heading_3.font.color.rgb = RGBColor(0, 51, 102)
+    heading_3.font.color.rgb = RGBColor(31, 78, 121) # Same Deep Navy
+    heading_3.paragraph_format.space_before = Pt(14)
+    heading_3.paragraph_format.space_after = Pt(6)
+
+    # Heading 4: Metadata Headers 
+    if 'Heading 4' in doc.styles:
+        heading_4 = doc.styles['Heading 4']
+        heading_4.font.name = 'Arial'
+        heading_4.font.size = Pt(12)
+        heading_4.font.bold = True
+        # Slightly lighter variation for H4 to keep it subtle but related
+        heading_4.font.color.rgb = RGBColor(57, 102, 148) 
+        heading_4.paragraph_format.space_before = Pt(14)
+        heading_4.paragraph_format.space_after = Pt(6)
+        
+        # Remove any borders/underlines 
+        p_pr = heading_4._element.get_or_add_pPr()
+        p_borders = p_pr.find(qn('w:pBorders'))
+        if p_borders is not None:
+             p_pr.remove(p_borders)
+
+    # Attempt to catch Titles if used
+    if 'Title' in doc.styles:
+        title = doc.styles['Title']
+        title.font.name = 'Arial'
+        title.font.size = Pt(18)
+        title.font.bold = True
+        title.font.color.rgb = RGBColor(0, 51, 102)
+        title.paragraph_format.alignment = 0 # Left align (WD_ALIGN_PARAGRAPH.LEFT is 0)
 
 
 def _trim_image_file(image_path: Path):
@@ -480,7 +552,13 @@ def _enforce_table_borders(docx_path: Path):
         _set_header_row_style(table)
         for row in table.rows:
             for cell in row.cells:
-                _set_cell_borders(cell)
+                _set_cell_borders(cell) 
+                # Ensure table content doesn't inherit large paragraph spacing
+                for paragraph in cell.paragraphs:
+                    paragraph.paragraph_format.space_after = Pt(0)
+                    if paragraph.style.name == 'Normal':
+                        paragraph.style = doc.styles['Normal'] # Re-assert style if needed but properties override style
+    
     doc.save(str(docx_path))
     _trim_docx_media_images(docx_path)
     _sync_inline_shape_aspect_ratio(docx_path)
@@ -586,7 +664,7 @@ async def convert_markdown_to_docx(file: UploadFile = File(...)):
 
     cmd = [
         "pandoc",
-        "-f", "gfm+hard_line_breaks+raw_html",
+        "-f", "gfm+raw_html",
         processed_path,
         "-o", str(output_path),
         "-F", "mermaid-filter",

@@ -117,6 +117,8 @@ This section outlines the ETL (Extract, Transform, Load) processes defined in th
 
 ### #1 SAP Staff ETL
 
+<div class="status-banner status-warning">STATUS: PENDING</div>
+
 **Process Description**  
 This process handles the synchronization of staff/personnel data from the corporate SAP system into the TeleStaff scheduling system.
 
@@ -150,6 +152,8 @@ This process handles the synchronization of staff/personnel data from the corpor
 *   Security mechanisms (Authentication/Authorization) for the TeleStaff Cloud API need to be configured in the SAP outbound process.
 
 ### #2 Staff ETL
+
+<div class="status-banner status-high-risk">STATUS: BLOCKED / IN ANALYSIS</div>
 
 **Process Description**  
 This ETL process synchronizes staff/personnel data from the **TeleStaff Cloud Platform** (Source) to the **First Due RMS** (Target). It replaces legacy file-based transfers with a direct API-to-API integration to create and update personnel records in First Due to match the active roster in TeleStaff.
@@ -348,6 +352,8 @@ The ETL operates in two modes, controlled by the `dry_run` setting in `staff_etl
 
 ### #3 Specialty ETL
 
+<div class="status-banner status-high-risk">STATUS: ON HOLD (VENDOR ISSUE)</div>
+
 **Process Description**  
 This integration ensures that staff certifications/qualifications tracked in First Due are reflected back in TeleStaff for proper scheduling validation (e.g., ensuring a specialized unit is staffed by qualified personnel).
 
@@ -387,6 +393,8 @@ This integration ensures that staff certifications/qualifications tracked in Fir
 *   Must map First Due "Certification Types" to TeleStaff "Specialties".
 
 ### #4 Address ETL
+
+<div class="status-banner status-warning">STATUS: UNDER EVALUATION</div>
 
 **Process Description**  
 A revamped flow for provisioning master address data. POSSE data is ingested into Databricks, exposed via a normalized API, and then transformed for consumption by the RMS.
@@ -446,6 +454,8 @@ A revamped flow for provisioning master address data. POSSE data is ingested int
 
 ### #5 BI Merge ETL
 
+<div class="status-banner status-info">STATUS: ANALYSIS PHASE</div>
+
 **Process Description**  
 Combines historical data with new operational data to provide a unified view for analytics.
 
@@ -465,6 +475,8 @@ Combines historical data with new operational data to provide a unified view for
 
 ### #6 RPS ETL
 
+<div class="status-banner status-high-risk">STATUS: PENDING REQUIREMENTS</div>
+
 **Process Description**  
 This process currently feeds "Enforcement and Addresses" data to the RPS system. In the future state, it will likely need to source data from the new RMS's Investigation and Incident modules.
 
@@ -483,6 +495,8 @@ This process currently feeds "Enforcement and Addresses" data to the RPS system.
 
 ### #7 VFRS Reports ETL
 
+<div class="status-banner status-high-risk">STATUS: HIGH RISK</div>
+
 **Process Description**  
 This integration handles all reporting requirements from the VFRS report repository that are not covered by First Due's native "Ad-hoc" reporting.
 
@@ -500,6 +514,8 @@ This integration handles all reporting requirements from the VFRS report reposit
 *   **Status**: Pending Platform Decision / **High Risk**.
 
 ### #V1 Vendor Roster Pull
+
+<div class="status-banner status-success">STATUS: UNDER DEVELOPMENT (Q1)</div>
 
 **Process Description**  
 This is a vendor-managed integration where First Due pulls personnel and roster data directly from TeleStaff.

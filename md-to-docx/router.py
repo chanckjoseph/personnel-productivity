@@ -544,8 +544,113 @@ def _apply_table_style(table):
             continue
 
 
+def _apply_status_banner(doc):
+    """
+    Finds paragraphs with [[STATUS_BANNER:<TYPE>:<TEXT>]] and styles them as a banner.
+    """
+    # Regex to capture TYPE and TEXT
+    banner_pattern = re.compile(r'\[\[STATUS_BANNER:(.*?):(.*?)\]\]')
+    
+    # Define styles for different banner types
+    styles = {
+        'high-risk': {
+            'bg': 'FFEBEE',       # Light Red
+            'border': 'FFCDD2',   # Red Border
+            'text': (0xB7, 0x1C, 0x1C) # Dark Red
+        },
+        'medium-risk': {
+            'bg': 'FFF3E0',       # Light Orange
+            'border': 'FFE0B2',   # Orange Border
+            'text': (0xE6, 0x51, 0x00) # Dark Orange
+        },
+        'low-risk': {
+            'bg': 'E8F5E9',       # Light Green
+            'border': 'C8E6C9',   # Green Border
+            'text': (0x1B, 0x5E, 0x20) # Dark Green
+        },
+        'info': {
+            'bg': 'E3F2FD',       # Light Blue
+            'border': 'BBDEFB',   # Blue Border
+            'text': (0x0D, 0x47, 0xA1) # Dark Blue
+        },
+        'warning': {
+            'bg': 'FFF8E1',       # Light Yellow
+            'border': 'FFECB3',   # Yellow Border
+            'text': (0xF5, 0x7F, 0x17) # Dark Yellow/Orange
+        },
+        'default': {
+            'bg': 'F5F5F5',       # Light Grey
+            'border': 'E0E0E0',   # Grey Border
+            'text': (0x42, 0x42, 0x42) # Dark Grey
+        }
+    }
+
+    for paragraph in doc.paragraphs:
+        match = banner_pattern.search(paragraph.text)
+        if match:
+            banner_type = match.group(1).lower()
+            text_content = match.group(2)
+            
+            # map css classes to internal keys
+            style_key = 'default'
+            if 'high-risk' in banner_type:
+                style_key = 'high-risk'
+            elif 'medium-risk' in banner_type:
+                style_key = 'medium-risk'
+            elif 'low-risk' in banner_type or 'success' in banner_type:
+                style_key = 'low-risk'
+            elif 'info' in banner_type:
+                style_key = 'info'
+            elif 'warning' in banner_type:
+                style_key = 'warning'
+
+            style = styles[style_key]
+
+            # Clear existing runs and add new styled run
+            paragraph.clear()
+            
+            run = paragraph.add_run(text_content)
+            run.bold = True
+            r, g, b = style['text']
+            run.font.color.rgb = RGBColor(r, g, b)
+            run.font.size = Pt(10)
+            
+            # Apply paragraph shading (Background Color)
+            pPr = paragraph._p.get_or_add_pPr()
+            
+            # Remove existing shader if any
+            existing_shd = pPr.find(qn('w:shd'))
+            if existing_shd is not None:
+                pPr.remove(existing_shd)
+            
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear')
+            shd.set(qn('w:color'), 'auto')
+            shd.set(qn('w:fill'), style['bg'])
+            pPr.append(shd)
+            
+            # Add padding via borders
+            existing_pBdr = pPr.find(qn('w:pBdr'))
+            if existing_pBdr is not None:
+                pPr.remove(existing_pBdr)
+            
+            pBdr = OxmlElement('w:pBdr')
+            for side in ['top', 'left', 'bottom', 'right']:
+                bdr = OxmlElement(f'w:{side}')
+                bdr.set(qn('w:val'), 'single')
+                bdr.set(qn('w:sz'), '4') # 1/2 pt
+                bdr.set(qn('w:space'), '4') # 4 pt padding
+                bdr.set(qn('w:color'), style['border'])
+                pBdr.append(bdr)
+            pPr.append(pBdr)
+
+            # Set alignment if needed
+            paragraph.alignment = 0 # Left aligned
+
+
 def _enforce_table_borders(docx_path: Path):
     doc = Document(str(docx_path))
+    _apply_status_banner(doc)
     _enforce_document_styles(doc)
     for table in doc.tables:
         _apply_table_style(table)
@@ -582,6 +687,17 @@ def preprocess_markdown(file_path):
             return f"\n```mermaid\n{code}\n```\n"
         
         new_content = pattern.sub(replacement, content)
+
+        # Regex to transform <div class="status-banner status-high-risk">...</div> text
+        # Regex to transform <div class="status-banner status-TYPE">...</div> text
+        banner_pattern = re.compile(r'<div class="status-banner (.*?)">(.*?)</div>', re.DOTALL)
+        
+        def banner_replacement(match):
+            banner_type = match.group(1).strip()
+            text = match.group(2).strip()
+            return f"\n\n[[STATUS_BANNER:{banner_type}:{text}]]\n\n"
+
+        new_content = banner_pattern.sub(banner_replacement, new_content)
         
         base = os.path.splitext(file_path)[0]
         temp_path = f"{base}_processed.md"

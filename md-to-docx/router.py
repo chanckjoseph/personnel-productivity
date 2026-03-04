@@ -679,6 +679,11 @@ def preprocess_markdown(file_path):
         with open(file_path, 'r', encoding='utf-8') as f:
             content = f.read()
         
+        # Strip <details> and <summary> tags (keep content) for DOCX compatibility
+        # These HTML tags are often ignored or dropped by Pandoc when converting to DOCX
+        content = re.sub(r'</?details\b[^>]*>', '', content, flags=re.IGNORECASE)
+        content = re.sub(r'</?summary\b[^>]*>', '', content, flags=re.IGNORECASE)
+
         # Regex to transform <div class="mermaid">...</div> into ```mermaid...```
         pattern = re.compile(r'<div class="mermaid">\s*(.*?)\s*</div>', re.DOTALL)
         

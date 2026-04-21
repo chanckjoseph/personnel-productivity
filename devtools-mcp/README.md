@@ -136,6 +136,36 @@ Manual build:
 docker run --rm -v "%cd%":/src -w /src golang:1.22 sh -c "CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/devtools-mcp.exe ."
 ```
 
+## Recompiling After Changes
+
+If you modify the source code in `main.go` or pull new changes from GitHub, you need to recompile the binary.
+
+**Windows:**
+1. Stop the MCP server (or manually close it in VS Code)
+2. From the `devtools-mcp/` folder, run:
+   ```batch
+   setup.bat
+   ```
+3. Restart VS Code to load the new binary
+
+**Linux/macOS:**
+1. Stop the MCP server
+2. From the `devtools-mcp/` folder, run:
+   ```bash
+   bash setup.sh
+   ```
+3. Restart VS Code to load the new binary
+
+**When to recompile:**
+- You edited `main.go` or other source files
+- You pulled changes from GitHub
+- You want to add new tools to the MCP
+- The binary seems out of sync with the code
+
+**After recompiling:**
+- Always restart VS Code for the changes to take effect
+- The new binary will be loaded when VS Code restarts
+
 ## Tool Schemas
 
 **git_status:**

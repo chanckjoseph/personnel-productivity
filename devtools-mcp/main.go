@@ -101,7 +101,7 @@ func main() {
 						"properties": map[string]interface{}{
 							"max_depth": map[string]interface{}{
 								"type":        "integer",
-								"description": "Maximum depth to traverse (default: 3)",
+								"description": "Maximum depth to traverse (default: 5)",
 							},
 						},
 						"additionalProperties": false,
@@ -180,8 +180,8 @@ func handleGetProjectStructure(writer *bufio.Writer, id interface{}, args map[st
 		workDir = "."
 	}
 
-	// Get max_depth parameter (default 3)
-	maxDepth := 3
+	// Get max_depth parameter (default 5)
+	maxDepth := 5
 	if depthRaw, ok := args["max_depth"]; ok {
 		if depthNum, ok := depthRaw.(float64); ok {
 			maxDepth = int(depthNum)

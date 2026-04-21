@@ -36,17 +36,17 @@ Explore the directory structure and organization of the project. Useful for unde
 **Input:**
 ```json
 {
-  "max_depth": 3
+  "max_depth": 5
 }
 ```
 
-`max_depth` is optional (default: 3). Controls how deep to traverse the directory tree.
+`max_depth` is optional (default: 5). Controls how deep to traverse the directory tree.
 
 **Response:** Tree view showing folders and files, ignoring common noise like `.git`, `node_modules`, `bin`, `.vscode`, etc.
 
 **Example:**
 ```
-Project Structure (depth: 3)
+Project Structure (depth: 5)
 
 ├── devtools-mcp/
 │   ├── main.go

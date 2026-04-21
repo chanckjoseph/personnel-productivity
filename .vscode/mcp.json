@@ -1,0 +1,8 @@
+{
+  "servers": {
+    "hello-go-mcp": {
+      "type": "stdio",
+      "command": "${workspaceFolder}/go-hello-mcp/bin/hello-mcp.exe"
+    }
+  }
+}

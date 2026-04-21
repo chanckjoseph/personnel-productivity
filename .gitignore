@@ -6,3 +6,5 @@ venv/
 .DS_Store
 .pat
 .username
+*/bin/
+*.exe

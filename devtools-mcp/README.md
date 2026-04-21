@@ -29,6 +29,32 @@ MCP server for automating developer workflows: Git commit and push operations wi
 
 ## Using the Tools
 
+### git_status
+
+Check repository status: URL, current branch, and list of modified/untracked files.
+
+**Input:**
+```json
+{}
+```
+
+**Response:**
+```json
+{
+  "repo_url": "https://github.com/chanckjoseph/personnel-productivity.git",
+  "current_branch": "main",
+  "files": [
+    {"filename": "src/main.go", "status": "modified"},
+    {"filename": "README.md", "status": "untracked"}
+  ],
+  "summary": {
+    "modified": 1,
+    "untracked": 1,
+    "total": 2
+  }
+}
+```
+
 ### git_commit
 
 Commit all staged changes with a message. Automatically runs `git add -A` to stage everything (respecting `.gitignore`), then commits with your message.
@@ -111,6 +137,9 @@ docker run --rm -v "%cd%":/src -w /src golang:1.22 sh -c "CGO_ENABLED=0 GOOS=win
 ```
 
 ## Tool Schemas
+
+**git_status:**
+- No parameters required
 
 **git_commit:**
 - `message` (string, required) - Commit message

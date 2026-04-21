@@ -94,6 +94,15 @@ func main() {
 		case "tools/list":
 			tools := []toolDefinition{
 				{
+					Name:        "git_status",
+					Description: "Get repository status: URL, current branch, and modified files",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{},
+						"additionalProperties": false,
+					},
+				},
+				{
 					Name:        "git_commit",
 					Description: "Commit all staged changes with a message. Automatically runs 'git add -A' before committing.",
 					InputSchema: map[string]interface{}{
@@ -132,6 +141,8 @@ func main() {
 			}
 
 			switch params.Name {
+			case "git_status":
+				handleGitStatus(writer, id, params.Arguments)
 			case "git_commit":
 				handleGitCommit(writer, id, params.Arguments)
 			case "git_push":
@@ -145,6 +156,117 @@ func main() {
 			sendError(writer, id, -32601, "method not found")
 		}
 	}
+}
+
+func handleGitStatus(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
+	workDir := os.Getenv("GIT_WORK_DIR")
+	if workDir == "" {
+		workDir = "."
+	}
+
+	var output strings.Builder
+
+	// Get repo URL
+	getRemoteCmd := exec.Command("git", "config", "--get", "remote.origin.url")
+	getRemoteCmd.Dir = workDir
+	remoteOut, err := getRemoteCmd.Output()
+	if err != nil {
+		sendError(writer, id, -32602, "Failed to get remote URL. Is this a git repository?")
+		return
+	}
+	repoURL := strings.TrimSpace(string(remoteOut))
+
+	// Get current branch
+	getBranchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
+	getBranchCmd.Dir = workDir
+	branchOut, err := getBranchCmd.Output()
+	if err != nil {
+		sendError(writer, id, -32602, "Failed to get current branch")
+		return
+	}
+	currentBranch := strings.TrimSpace(string(branchOut))
+
+	// Get git status in porcelain format (easy to parse)
+	statusCmd := exec.Command("git", "status", "--porcelain")
+	statusCmd.Dir = workDir
+	statusOut, err := statusCmd.Output()
+	if err != nil {
+		sendError(writer, id, -32602, "Failed to get git status")
+		return
+	}
+
+	// Parse status output
+	var files []map[string]interface{}
+	statusLines := strings.Split(strings.TrimSpace(string(statusOut)), "\n")
+	
+	modifiedCount := 0
+	untrackedCount := 0
+	
+	for _, line := range statusLines {
+		if line == "" {
+			continue
+		}
+		
+		// Format: "XY filename"
+		if len(line) < 3 {
+			continue
+		}
+
+		status := line[:2]
+		filename := strings.TrimSpace(line[3:])
+
+		// Determine file status
+		var fileStatus string
+		switch status {
+		case "M ":
+			fileStatus = "modified"
+			modifiedCount++
+		case " M":
+			fileStatus = "modified (staged)"
+			modifiedCount++
+		case "A ":
+			fileStatus = "added"
+			modifiedCount++
+		case "D ":
+			fileStatus = "deleted"
+			modifiedCount++
+		case "??":
+			fileStatus = "untracked"
+			untrackedCount++
+		case "MM", "AM", "DM":
+			fileStatus = "conflict"
+			modifiedCount++
+		default:
+			fileStatus = "unknown"
+		}
+
+		files = append(files, map[string]interface{}{
+			"filename": filename,
+			"status":   fileStatus,
+		})
+	}
+
+	// Build summary
+	output.WriteString(fmt.Sprintf("Repository: %s\n", repoURL))
+	output.WriteString(fmt.Sprintf("Current branch: %s\n", currentBranch))
+	output.WriteString(fmt.Sprintf("Modified files: %d, Untracked files: %d\n", modifiedCount, untrackedCount))
+
+	sendResult(writer, id, map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": output.String(),
+			},
+		},
+		"repo_url":       repoURL,
+		"current_branch": currentBranch,
+		"files":          files,
+		"summary": map[string]interface{}{
+			"modified":   modifiedCount,
+			"untracked":  untrackedCount,
+			"total":      len(files),
+		},
+	})
 }
 
 func handleGitCommit(writer *bufio.Writer, id interface{}, args map[string]interface{}) {

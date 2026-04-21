@@ -29,6 +29,52 @@ MCP server for automating developer workflows: Git commit and push operations wi
 
 ## Using the Tools
 
+### get_project_structure
+
+Explore the directory structure and organization of the project. Useful for understanding layout, finding where to make changes, and identifying project type from the file organization.
+
+**Input:**
+```json
+{
+  "max_depth": 3
+}
+```
+
+`max_depth` is optional (default: 3). Controls how deep to traverse the directory tree.
+
+**Response:** Tree view showing folders and files, ignoring common noise like `.git`, `node_modules`, `bin`, `.vscode`, etc.
+
+**Example:**
+```
+Project Structure (depth: 3)
+
+├── devtools-mcp/
+│   ├── main.go
+│   ├── go.mod
+│   ├── Dockerfile
+│   ├── setup.bat
+│   ├── setup.sh
+│   ├── README.md
+│   └── bin/
+│       └── devtools-mcp.exe
+├── go-hello-mcp/
+│   ├── main.go
+│   ├── go.mod
+│   ├── Dockerfile
+│   └── bin/
+│       └── hello-mcp.exe
+├── md-to-docx/
+├── .vscode/
+│   └── mcp.json
+└── README.md
+```
+
+**What to infer:**
+- See `go.mod` → Go project
+- See `main.go` → Entry point
+- See `Dockerfile` → Containerized
+- See `test/` or `tests/` → Has unit tests
+
 ### git_status
 
 Check repository status: URL, current branch, and list of modified/untracked files.
@@ -167,6 +213,9 @@ If you modify the source code in `main.go` or pull new changes from GitHub, you 
 - The new binary will be loaded when VS Code restarts
 
 ## Tool Schemas
+
+**get_project_structure:**
+- `max_depth` (integer, optional) - How deep to traverse (default: 3)
 
 **git_status:**
 - No parameters required

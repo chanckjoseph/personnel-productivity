@@ -94,6 +94,20 @@ func main() {
 		case "tools/list":
 			tools := []toolDefinition{
 				{
+					Name:        "get_project_structure",
+					Description: "Returns the directory tree and file organization of the project. Shows folder hierarchy, file names, and structure patterns that help identify project type, architecture, and where code/tests/configuration are located.",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"max_depth": map[string]interface{}{
+								"type":        "integer",
+								"description": "Maximum depth to traverse (default: 3)",
+							},
+						},
+						"additionalProperties": false,
+					},
+				},
+				{
 					Name:        "git_status",
 					Description: "Get repository status: URL, current branch, and modified files",
 					InputSchema: map[string]interface{}{
@@ -141,6 +155,8 @@ func main() {
 			}
 
 			switch params.Name {
+			case "get_project_structure":
+				handleGetProjectStructure(writer, id, params.Arguments)
 			case "git_status":
 				handleGitStatus(writer, id, params.Arguments)
 			case "git_commit":
@@ -156,6 +172,126 @@ func main() {
 			sendError(writer, id, -32601, "method not found")
 		}
 	}
+}
+
+func handleGetProjectStructure(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
+	workDir := os.Getenv("GIT_WORK_DIR")
+	if workDir == "" {
+		workDir = "."
+	}
+
+	// Get max_depth parameter (default 3)
+	maxDepth := 3
+	if depthRaw, ok := args["max_depth"]; ok {
+		if depthNum, ok := depthRaw.(float64); ok {
+			maxDepth = int(depthNum)
+		}
+	}
+
+	// Directories to ignore (common noise)
+	ignoredDirs := map[string]bool{
+		".git":            true,
+		"node_modules":    true,
+		".venv":           true,
+		"venv":            true,
+		"__pycache__":     true,
+		".pytest_cache":   true,
+		"bin":             true,
+		".vscode":         true,
+		".idea":           true,
+		"build":           true,
+		"dist":            true,
+		".DS_Store":       true,
+		".playwright-mcp": true,
+	}
+
+	// Walk the directory and build tree
+	type DirEntry struct {
+		Name     string       `json:"name"`
+		Type     string       `json:"type"` // "file" or "dir"
+		Children []DirEntry  `json:"children,omitempty"`
+	}
+
+	var walkDir func(path string, depth int) ([]DirEntry, error)
+	walkDir = func(path string, depth int) ([]DirEntry, error) {
+		if depth > maxDepth {
+			return nil, nil
+		}
+
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, err
+		}
+
+		var result []DirEntry
+		for _, entry := range entries {
+			name := entry.Name()
+			
+			// Skip ignored directories
+			if entry.IsDir() && ignoredDirs[name] {
+				continue
+			}
+
+			if entry.IsDir() {
+				children, _ := walkDir(filepath.Join(path, name), depth+1)
+				result = append(result, DirEntry{
+					Name:     name + "/",
+					Type:     "dir",
+					Children: children,
+				})
+			} else {
+				result = append(result, DirEntry{
+					Name: name,
+					Type: "file",
+				})
+			}
+		}
+
+		return result, nil
+	}
+
+	structure, err := walkDir(workDir, 0)
+	if err != nil {
+		sendError(writer, id, -32602, fmt.Sprintf("Failed to read directory structure: %v", err))
+		return
+	}
+
+	// Build text representation for display
+	var textOutput strings.Builder
+	textOutput.WriteString(fmt.Sprintf("Project Structure (depth: %d)\n\n", maxDepth))
+
+	var buildText func(entries []DirEntry, indent string)
+	buildText = func(entries []DirEntry, indent string) {
+		for i, entry := range entries {
+			isLast := i == len(entries)-1
+			prefix := "├── "
+			if isLast {
+				prefix = "└── "
+			}
+			textOutput.WriteString(indent + prefix + entry.Name + "\n")
+
+			if entry.Children != nil && len(entry.Children) > 0 {
+				nextIndent := indent + "│   "
+				if isLast {
+					nextIndent = indent + "    "
+				}
+				buildText(entry.Children, nextIndent)
+			}
+		}
+	}
+
+	buildText(structure, "")
+
+	sendResult(writer, id, map[string]interface{}{
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": textOutput.String(),
+			},
+		},
+		"structure": structure,
+		"max_depth": maxDepth,
+	})
 }
 
 func handleGitStatus(writer *bufio.Writer, id interface{}, args map[string]interface{}) {

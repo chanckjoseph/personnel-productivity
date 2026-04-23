@@ -4,20 +4,38 @@ MCP server for automating developer workflows: Git commit and push operations wi
 
 **What it does:** Provides `git_commit` and `git_push` tools that agents can call without worrying about credentials. The server reads `.pat` and `.username` from the workspace root and handles authentication automatically.
 
-## Quick Start (Windows)
+**Platforms:** Windows | Linux | macOS
 
-1. **Make sure Docker is running** (or install from https://www.docker.com/products/docker-desktop)
+## Quick Start
 
-2. **Ensure repo has credentials:**
-   - [`.pat`](../.pat) - Your GitHub Personal Access Token
-   - [`.username`](../.username) - Your GitHub username
+### Windows
 
-3. From this folder (`devtools-mcp/`), run:
+#### Option 1: Pre-built Installer (Easiest) 🚀
+
+If you have `install.exe`:
+
+```batch
+install.exe
+```
+
+Then configure in your project's `.vscode/mcp.json`:
+```json
+"devtools-mcp": {
+  "type": "stdio",
+  "command": "C:\\Users\\YourUsername\\Documents\\devtools-mcp\\devtools-mcp.exe"
+}
+```
+
+#### Option 2: Build from Source
+
+1. **Ensure Docker is running** (install from https://www.docker.com/products/docker-desktop)
+
+2. From this folder (`devtools-mcp/`), run:
    ```batch
    setup.bat
    ```
 
-4. Update `.vscode/mcp.json` to include:
+3. Update `.vscode/mcp.json`:
    ```json
    "devtools-mcp": {
      "type": "stdio",
@@ -25,7 +43,98 @@ MCP server for automating developer workflows: Git commit and push operations wi
    }
    ```
 
+4. Add credentials to your project root:
+   - `.pat` - Your GitHub Personal Access Token
+   - `.username` - Your GitHub username
+
 5. Restart VS Code
+
+### Linux / macOS
+
+#### Option 1: Installation Script (Easiest) 🚀
+
+If you have `install.sh`:
+
+```bash
+chmod +x install.sh
+./install.sh
+```
+
+This installs to `~/.local/devtools-mcp`. Then configure in your project's `.vscode/mcp.json`:
+```json
+"devtools-mcp": {
+  "type": "stdio",
+  "command": "~/.local/devtools-mcp/devtools-mcp"
+}
+```
+
+#### Option 2: Build from Source
+
+1. **Ensure Docker is running** (install from https://www.docker.com/products/docker-desktop)
+
+2. From this folder (`devtools-mcp/`), run:
+   ```bash
+   chmod +x build-linux.sh
+   ./build-linux.sh
+   ```
+
+3. Update `.vscode/mcp.json`:
+   ```json
+   "devtools-mcp": {
+     "type": "stdio",
+     "command": "${workspaceFolder}/devtools-mcp/bin/devtools-mcp"
+   }
+   ```
+
+4. Add credentials to your project root:
+   ```bash
+   echo "your_git_token" > .pat
+   echo "your_username" > .username
+   chmod 600 .pat .username
+   ```
+
+5. Restart VS Code
+
+## Building Installers for Distribution
+
+### Windows Installer
+
+```batch
+build-installer.bat
+```
+
+**Requirements:** Docker + InnoSetup 6 (free: https://jrsoftware.org/isdl.php)
+
+Creates: `install.exe`
+
+### Linux Installer
+
+```bash
+chmod +x build-linux.sh
+./build-linux.sh
+./install.sh
+```
+
+**Requirements:** Docker
+
+Creates: install script or .deb package
+
+### All Platforms
+
+To build binaries for all platforms (Windows, Linux, macOS):
+
+```bash
+chmod +x build-all.sh
+./build-all.sh
+```
+
+Generates:
+- `bin/devtools-mcp.exe` (Windows 64-bit)
+- `bin/devtools-mcp` (Linux 64-bit)
+- `bin/devtools-mcp-darwin-amd64` (macOS Intel)
+- `bin/devtools-mcp-darwin-arm64` (macOS Apple Silicon)
+
+See [DISTRIBUTION.md](DISTRIBUTION.md) for detailed distribution and deployment instructions.
 
 ## Using the Tools
 

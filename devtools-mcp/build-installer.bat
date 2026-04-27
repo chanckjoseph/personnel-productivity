@@ -2,41 +2,24 @@
 setlocal enabledelayedexpansion
 
 echo ========================================
-echo Devtools MCP Setup + Installer Build
+echo Devtools MCP - Build Windows Installer
 echo ========================================
 echo.
 
-REM Check if Docker is available
-docker --version >nul 2>&1
-if errorlevel 1 (
-  echo ERROR: Docker is not installed or not in PATH.
-  echo Please install Docker Desktop from https://www.docker.com/products/docker-desktop
+REM Check if binary exists
+if not exist bin\devtools-mcp.exe (
+  echo ERROR: bin\devtools-mcp.exe not found.
+  echo.
+  echo Please run: distribute.bat
+  echo to build the binary first.
   exit /b 1
 )
 
-echo [1/4] Docker found: ✓
-echo.
-
-REM Create bin directory if it doesn't exist
-if not exist bin mkdir bin
-echo [2/4] Created bin directory (if needed): ✓
-echo.
-
-REM Build the Windows executable
-echo [3/4] Building devtools-mcp.exe...
-docker run --rm -v "%cd%":/src -w /src golang:1.22 sh -c "CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/devtools-mcp.exe ."
-
-if errorlevel 1 (
-  echo.
-  echo ERROR: Build failed. Check Docker is running and you have internet access.
-  exit /b %errorlevel%
-)
-
-echo devtools-mcp.exe built successfully: ✓
+echo [1/2] Found binary: bin\devtools-mcp.exe ✓
 echo.
 
 REM Check for InnoSetup
-echo [4/4] Checking for InnoSetup compiler...
+echo [2/2] Checking for InnoSetup compiler...
 set INNO_PATH=C:\Program Files (x86)\Inno Setup 6
 if not exist "%INNO_PATH%\ISCC.exe" (
   set INNO_PATH=C:\Program Files\Inno Setup 6
@@ -77,8 +60,4 @@ if not exist "%INNO_PATH%\ISCC.exe" (
   echo configure it in their project's .vscode/mcp.json
   echo.
 )
-
-echo.
-echo Binary built to: bin\devtools-mcp.exe
-echo.
 

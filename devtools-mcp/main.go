@@ -6,46 +6,28 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strings"
 )
 
-type rpcRequest struct {
-	JSONRPC string          `json:"jsonrpc"`
-	ID      json.RawMessage `json:"id,omitempty"`
-	Method  string          `json:"method"`
-	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-type rpcResponse struct {
-	JSONRPC string      `json:"jsonrpc"`
-	ID      interface{} `json:"id,omitempty"`
-	Result  interface{} `json:"result,omitempty"`
-	Error   *rpcError   `json:"error,omitempty"`
-}
-
-type rpcError struct {
-	Code    int    `json:"code"`
-	Message string `json:"message"`
-}
-
-type toolDefinition struct {
-	Name        string                 `json:"name"`
-	Description string                 `json:"description"`
-	InputSchema map[string]interface{} `json:"inputSchema"`
-}
-
-type toolsCallParams struct {
-	Name      string                 `json:"name"`
-	Arguments map[string]interface{} `json:"arguments"`
-}
+// Global session manager
+var sessionMgr *SessionManager
 
 func main() {
 	fmt.Fprintln(os.Stderr, "devtools-mcp: server started")
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)
 	defer writer.Flush()
+
+	// Initialize session manager
+	workDir := os.Getenv("GIT_WORK_DIR")
+	if workDir == "" {
+		workDir = "."
+	}
+	var err error
+	sessionMgr, err = NewSessionManager(workDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to initialize session manager: %v\n", err)
+		return
+	}
 
 	for {
 		msg, err := readFrame(reader)
@@ -63,18 +45,16 @@ func main() {
 			continue
 		}
 
-		if len(req.ID) == 0 {
+		// Skip if no ID (notification)
+		if req.ID == nil {
 			if req.Method == "notifications/initialized" {
 				continue
 			}
 			continue
 		}
 
-		id, err := parseID(req.ID)
-		if err != nil {
-			sendError(writer, nil, -32600, "invalid request id")
-			continue
-		}
+		// ID is already parsed, just use it directly
+		id := req.ID
 
 		switch req.Method {
 		case "initialize":
@@ -94,7 +74,7 @@ func main() {
 		case "tools/list":
 			tools := []toolDefinition{
 				{
-					Name:        "get_project_structure",
+					Name:        "project_structure",
 					Description: "Returns the directory tree and file organization of the project. Shows folder hierarchy, file names, and structure patterns that help identify project type, architecture, and where code/tests/configuration are located.",
 					InputSchema: map[string]interface{}{
 						"type": "object",
@@ -145,6 +125,243 @@ func main() {
 						"additionalProperties": false,
 					},
 				},
+				{
+					Name:        "debug_start_session",
+					Description: "Create a new debugging session to track scientific debugging workflow",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"bug_description": map[string]interface{}{
+								"type":        "string",
+								"description": "Description of the bug being debugged (optional)",
+							},
+						},
+						"additionalProperties": false,
+					},
+				},
+				{
+					Name:        "debug_session_state",
+					Description: "Get current session state, metadata, and debugging progress",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID to retrieve",
+							},
+						},
+						"required":               []string{"session_id"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_update_context",
+					Description: "Update arbitrary context/metadata in a debugging session",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID to update",
+							},
+							"key": map[string]interface{}{
+								"type":        "string",
+								"description": "Context key to set",
+							},
+							"value": map[string]interface{}{
+								"description": "Value to store (any type)",
+							},
+						},
+						"required":               []string{"session_id", "key", "value"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_formulate_hypothesis",
+					Description: "Formulate a testable, falsifiable hypothesis for the bug",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID",
+							},
+							"hypothesis_text": map[string]interface{}{
+								"type":        "string",
+								"description": "The hypothesis statement (must be falsifiable)",
+							},
+							"expected_outcome": map[string]interface{}{
+								"type":        "string",
+								"description": "Expected outcome if hypothesis is true (optional)",
+							},
+						},
+						"required":               []string{"session_id", "hypothesis_text"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_design_experiment",
+					Description: "Design an experiment to test a hypothesis",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID",
+							},
+							"hypothesis_id": map[string]interface{}{
+								"type":        "string",
+								"description": "ID of the hypothesis to test",
+							},
+							"steps": map[string]interface{}{
+								"type":        "array",
+								"description": "Array of steps to execute",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"independent_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Variables to manipulate (optional)",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"dependent_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Variables to measure (optional)",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"control_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Variables to keep constant (optional)",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+						},
+						"required":               []string{"session_id", "hypothesis_id", "steps"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_analyze_results",
+					Description: "Analyze experiment results to test hypothesis validity",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID",
+							},
+							"experiment_id": map[string]interface{}{
+								"type":        "string",
+								"description": "ID of the experiment",
+							},
+							"observations": map[string]interface{}{
+								"type":        "string",
+								"description": "What was actually observed",
+							},
+							"conclusion": map[string]interface{}{
+								"type":        "string",
+								"description": "One of: supported, refuted, inconclusive",
+								"enum":        []string{"supported", "refuted", "inconclusive"},
+							},
+						},
+						"required":               []string{"session_id", "experiment_id", "observations", "conclusion"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_session_history",
+					Description: "Display iteration history and debugging progress",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID",
+							},
+						},
+						"required":               []string{"session_id"},
+						"additionalProperties":   false,
+					},
+				},
+				{
+					Name:        "debug_workflow",
+					Description: "Interactive 6-step scientific debugging workflow orchestrator",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"step": map[string]interface{}{
+								"type":        "string",
+								"description": "Step: start, hypothesis, predict, experiment, analyze, fix, iterate",
+								"enum":        []string{"start", "hypothesis", "predict", "experiment", "analyze", "fix", "iterate"},
+							},
+							"session_id": map[string]interface{}{
+								"type":        "string",
+								"description": "Session ID (required for all steps except 'start')",
+							},
+							"bug_description": map[string]interface{}{
+								"type":        "string",
+								"description": "Bug description (required for 'start')",
+							},
+							"hypothesis": map[string]interface{}{
+								"type":        "string",
+								"description": "Hypothesis (required for 'hypothesis')",
+							},
+							"prediction": map[string]interface{}{
+								"type":        "string",
+								"description": "Prediction (required for 'predict')",
+							},
+							"steps": map[string]interface{}{
+								"type":        "array",
+								"description": "Experiment steps (required for 'experiment')",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"independent_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Independent variables (optional for 'experiment')",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"dependent_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Dependent variables (optional for 'experiment')",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"control_vars": map[string]interface{}{
+								"type":        "array",
+								"description": "Control variables (optional for 'experiment')",
+								"items": map[string]interface{}{
+									"type": "string",
+								},
+							},
+							"observations": map[string]interface{}{
+								"type":        "string",
+								"description": "Actual observations (required for 'analyze')",
+							},
+							"conclusion": map[string]interface{}{
+								"type":        "string",
+								"description": "Conclusion (required for 'analyze')",
+								"enum":        []string{"supported", "refuted", "inconclusive"},
+							},
+							"fix_description": map[string]interface{}{
+								"type":        "string",
+								"description": "Fix description (required for 'fix')",
+							},
+						},
+						"required":               []string{"step"},
+						"additionalProperties":   false,
+					},
+				},
 			}
 			sendResult(writer, id, map[string]interface{}{"tools": tools})
 		case "tools/call":
@@ -155,7 +372,7 @@ func main() {
 			}
 
 			switch params.Name {
-			case "get_project_structure":
+			case "project_structure":
 				handleGetProjectStructure(writer, id, params.Arguments)
 			case "git_status":
 				handleGitStatus(writer, id, params.Arguments)
@@ -163,6 +380,22 @@ func main() {
 				handleGitCommit(writer, id, params.Arguments)
 			case "git_push":
 				handleGitPush(writer, id, params.Arguments)
+			case "debug_start_session":
+				handleStartDebugSession(writer, id, params.Arguments)
+			case "debug_session_state":
+				handleGetSessionState(writer, id, params.Arguments)
+			case "debug_update_context":
+				handleUpdateSessionContext(writer, id, params.Arguments)
+			case "debug_formulate_hypothesis":
+				handleFormulateHypothesis(writer, id, params.Arguments)
+			case "debug_design_experiment":
+				handleDesignExperiment(writer, id, params.Arguments)
+			case "debug_analyze_results":
+				handleAnalyzeResults(writer, id, params.Arguments)
+			case "debug_session_history":
+				handleTrackIteration(writer, id, params.Arguments)
+			case "debug_workflow":
+				handleDebugWorkflow(writer, id, params.Arguments)
 			default:
 				sendError(writer, id, -32602, fmt.Sprintf("unknown tool: %s", params.Name))
 			}
@@ -170,498 +403,6 @@ func main() {
 			sendResult(writer, id, map[string]interface{}{})
 		default:
 			sendError(writer, id, -32601, "method not found")
-		}
-	}
-}
-
-func handleGetProjectStructure(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
-	workDir := os.Getenv("GIT_WORK_DIR")
-	if workDir == "" {
-		workDir = "."
-	}
-
-	// Get max_depth parameter (default 5)
-	maxDepth := 5
-	if depthRaw, ok := args["max_depth"]; ok {
-		if depthNum, ok := depthRaw.(float64); ok {
-			maxDepth = int(depthNum)
-		}
-	}
-
-	// Directories to ignore (common noise)
-	ignoredDirs := map[string]bool{
-		".git":            true,
-		"node_modules":    true,
-		".venv":           true,
-		"venv":            true,
-		"__pycache__":     true,
-		".pytest_cache":   true,
-		"bin":             true,
-		".vscode":         true,
-		".idea":           true,
-		"build":           true,
-		"dist":            true,
-		".DS_Store":       true,
-		".playwright-mcp": true,
-	}
-
-	// Walk the directory and build tree
-	type DirEntry struct {
-		Name     string       `json:"name"`
-		Type     string       `json:"type"` // "file" or "dir"
-		Children []DirEntry  `json:"children,omitempty"`
-	}
-
-	var walkDir func(path string, depth int) ([]DirEntry, error)
-	walkDir = func(path string, depth int) ([]DirEntry, error) {
-		if depth > maxDepth {
-			return nil, nil
-		}
-
-		entries, err := os.ReadDir(path)
-		if err != nil {
-			return nil, err
-		}
-
-		var result []DirEntry
-		for _, entry := range entries {
-			name := entry.Name()
-			
-			// Skip ignored directories
-			if entry.IsDir() && ignoredDirs[name] {
-				continue
-			}
-
-			if entry.IsDir() {
-				children, _ := walkDir(filepath.Join(path, name), depth+1)
-				result = append(result, DirEntry{
-					Name:     name + "/",
-					Type:     "dir",
-					Children: children,
-				})
-			} else {
-				result = append(result, DirEntry{
-					Name: name,
-					Type: "file",
-				})
-			}
-		}
-
-		return result, nil
-	}
-
-	structure, err := walkDir(workDir, 0)
-	if err != nil {
-		sendError(writer, id, -32602, fmt.Sprintf("Failed to read directory structure: %v", err))
-		return
-	}
-
-	// Build text representation for display
-	var textOutput strings.Builder
-	textOutput.WriteString(fmt.Sprintf("Project Structure (depth: %d)\n\n", maxDepth))
-
-	var buildText func(entries []DirEntry, indent string)
-	buildText = func(entries []DirEntry, indent string) {
-		for i, entry := range entries {
-			isLast := i == len(entries)-1
-			prefix := "├── "
-			if isLast {
-				prefix = "└── "
-			}
-			textOutput.WriteString(indent + prefix + entry.Name + "\n")
-
-			if entry.Children != nil && len(entry.Children) > 0 {
-				nextIndent := indent + "│   "
-				if isLast {
-					nextIndent = indent + "    "
-				}
-				buildText(entry.Children, nextIndent)
-			}
-		}
-	}
-
-	buildText(structure, "")
-
-	sendResult(writer, id, map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": textOutput.String(),
-			},
-		},
-		"structure": structure,
-		"max_depth": maxDepth,
-	})
-}
-
-func handleGitStatus(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
-	workDir := os.Getenv("GIT_WORK_DIR")
-	if workDir == "" {
-		workDir = "."
-	}
-
-	var output strings.Builder
-
-	// Get repo URL
-	getRemoteCmd := exec.Command("git", "config", "--get", "remote.origin.url")
-	getRemoteCmd.Dir = workDir
-	remoteOut, err := getRemoteCmd.Output()
-	if err != nil {
-		sendError(writer, id, -32602, "Failed to get remote URL. Is this a git repository?")
-		return
-	}
-	repoURL := strings.TrimSpace(string(remoteOut))
-
-	// Get current branch
-	getBranchCmd := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD")
-	getBranchCmd.Dir = workDir
-	branchOut, err := getBranchCmd.Output()
-	if err != nil {
-		sendError(writer, id, -32602, "Failed to get current branch")
-		return
-	}
-	currentBranch := strings.TrimSpace(string(branchOut))
-
-	// Get git status in porcelain format (easy to parse)
-	statusCmd := exec.Command("git", "status", "--porcelain")
-	statusCmd.Dir = workDir
-	statusOut, err := statusCmd.Output()
-	if err != nil {
-		sendError(writer, id, -32602, "Failed to get git status")
-		return
-	}
-
-	// Parse status output
-	var files []map[string]interface{}
-	statusLines := strings.Split(strings.TrimSpace(string(statusOut)), "\n")
-	
-	modifiedCount := 0
-	untrackedCount := 0
-	
-	for _, line := range statusLines {
-		if line == "" {
-			continue
-		}
-		
-		// Format: "XY filename"
-		if len(line) < 3 {
-			continue
-		}
-
-		status := line[:2]
-		filename := strings.TrimSpace(line[3:])
-
-		// Determine file status
-		var fileStatus string
-		switch status {
-		case "M ":
-			fileStatus = "modified"
-			modifiedCount++
-		case " M":
-			fileStatus = "modified (staged)"
-			modifiedCount++
-		case "A ":
-			fileStatus = "added"
-			modifiedCount++
-		case "D ":
-			fileStatus = "deleted"
-			modifiedCount++
-		case "??":
-			fileStatus = "untracked"
-			untrackedCount++
-		case "MM", "AM", "DM":
-			fileStatus = "conflict"
-			modifiedCount++
-		default:
-			fileStatus = "unknown"
-		}
-
-		files = append(files, map[string]interface{}{
-			"filename": filename,
-			"status":   fileStatus,
-		})
-	}
-
-	// Build summary
-	output.WriteString(fmt.Sprintf("Repository: %s\n", repoURL))
-	output.WriteString(fmt.Sprintf("Current branch: %s\n", currentBranch))
-	output.WriteString(fmt.Sprintf("Modified files: %d, Untracked files: %d\n", modifiedCount, untrackedCount))
-
-	sendResult(writer, id, map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": output.String(),
-			},
-		},
-		"repo_url":       repoURL,
-		"current_branch": currentBranch,
-		"files":          files,
-		"summary": map[string]interface{}{
-			"modified":   modifiedCount,
-			"untracked":  untrackedCount,
-			"total":      len(files),
-		},
-	})
-}
-
-func handleGitCommit(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
-	// Validate required message
-	messageRaw, ok := args["message"]
-	if !ok {
-		sendError(writer, id, -32602, "missing required argument: message")
-		return
-	}
-
-	// Parse message
-	message, ok := messageRaw.(string)
-	if !ok {
-		sendError(writer, id, -32602, "message must be a string")
-		return
-	}
-
-	message = strings.TrimSpace(message)
-	if message == "" {
-		sendError(writer, id, -32602, "message cannot be empty")
-		return
-	}
-
-	// Run git commands
-	var output strings.Builder
-
-	// git add -A
-	addCmd := exec.Command("git", "add", "-A")
-	addCmd.Dir = os.Getenv("GIT_WORK_DIR")
-	if addCmd.Dir == "" {
-		addCmd.Dir = "."
-	}
-
-	addOut, err := addCmd.CombinedOutput()
-	if err != nil {
-		output.WriteString(fmt.Sprintf("git add -A failed: %s\n%s", err, string(addOut)))
-	} else {
-		output.WriteString("Staged all changes with: git add -A\n")
-		if len(addOut) > 0 {
-			output.WriteString(string(addOut))
-		}
-	}
-
-	// git commit -m <message>
-	commitCmd := exec.Command("git", "commit", "-m", message)
-	commitCmd.Dir = os.Getenv("GIT_WORK_DIR")
-	if commitCmd.Dir == "" {
-		commitCmd.Dir = "."
-	}
-
-	commitOut, err := commitCmd.CombinedOutput()
-	if err != nil {
-		output.WriteString(fmt.Sprintf("git commit failed: %s\n%s", err, string(commitOut)))
-		sendResult(writer, id, map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": output.String(),
-				},
-			},
-		})
-		return
-	}
-
-	output.WriteString(fmt.Sprintf("Commit successful: %s\n", message))
-	if len(commitOut) > 0 {
-		output.WriteString(string(commitOut))
-	}
-
-	sendResult(writer, id, map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": output.String(),
-			},
-		},
-	})
-}
-
-func handleGitPush(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
-	// Get working directory (where .pat and .username are)
-	workDir := os.Getenv("GIT_WORK_DIR")
-	if workDir == "" {
-		workDir = "."
-	}
-
-	// Read .username
-	usernamePath := filepath.Join(workDir, ".username")
-	usernameBytes, err := os.ReadFile(usernamePath)
-	if err != nil {
-		sendError(writer, id, -32602, fmt.Sprintf(
-			"Cannot read .username file. Create it at: %s\nContent should be your GitHub username (e.g., chanckjoseph)",
-			usernamePath))
-		return
-	}
-	username := strings.TrimSpace(string(usernameBytes))
-	if username == "" {
-		sendError(writer, id, -32602, fmt.Sprintf(
-			".username file is empty. Add your GitHub username to: %s",
-			usernamePath))
-		return
-	}
-
-	// Read .pat
-	patPath := filepath.Join(workDir, ".pat")
-	patBytes, err := os.ReadFile(patPath)
-	if err != nil {
-		sendError(writer, id, -32602, fmt.Sprintf(
-			"Cannot read .pat file. Create it at: %s\nContent should be your GitHub Personal Access Token (https://github.com/settings/tokens)",
-			patPath))
-		return
-	}
-	token := strings.TrimSpace(string(patBytes))
-	if token == "" {
-		sendError(writer, id, -32602, fmt.Sprintf(
-			".pat file is empty. Add your GitHub Personal Access Token to: %s",
-			patPath))
-		return
-	}
-
-	// Get branch (default: main)
-	branch := "main"
-	if branchRaw, ok := args["branch"]; ok {
-		if branchStr, ok := branchRaw.(string); ok {
-			branch = strings.TrimSpace(branchStr)
-		}
-	}
-
-	// Get remote origin URL from git config
-	getRemoteCmd := exec.Command("git", "config", "--get", "remote.origin.url")
-	getRemoteCmd.Dir = workDir
-	remoteOut, err := getRemoteCmd.Output()
-	if err != nil {
-		sendError(writer, id, -32602, "Cannot read git remote. Is this a git repository?")
-		return
-	}
-
-	remoteURL := strings.TrimSpace(string(remoteOut))
-	// Extract owner/repo from URL
-	// Handle both https://github.com/owner/repo.git and git@github.com:owner/repo.git
-	if !strings.Contains(remoteURL, "github.com") {
-		sendError(writer, id, -32602, "Remote origin is not a GitHub repository")
-		return
-	}
-
-	// Build authenticated URL
-	var authenticatedURL string
-	if strings.HasPrefix(remoteURL, "git@") {
-		// SSH format: git@github.com:owner/repo.git -> https://github.com/owner/repo.git
-		parts := strings.Split(remoteURL, ":")
-		if len(parts) == 2 {
-			authenticatedURL = fmt.Sprintf("https://%s:%s@github.com/%s", username, token, parts[1])
-		} else {
-			sendError(writer, id, -32602, "Invalid SSH remote format")
-			return
-		}
-	} else {
-		// HTTPS format: https://github.com/owner/repo.git
-		// Replace with authenticated URL
-		authenticatedURL = fmt.Sprintf("https://%s:%s@github.com/%s",
-			username, token, strings.TrimPrefix(remoteURL, "https://github.com/"))
-	}
-
-	// Run git push
-	pushCmd := exec.Command("git", "push", authenticatedURL, branch, "--set-upstream")
-	pushCmd.Dir = workDir
-
-	var output strings.Builder
-	pushOut, err := pushCmd.CombinedOutput()
-	if err != nil {
-		output.WriteString(fmt.Sprintf("git push failed: %s\n%s", err, string(pushOut)))
-		sendResult(writer, id, map[string]interface{}{
-			"content": []map[string]interface{}{
-				{
-					"type": "text",
-					"text": output.String(),
-				},
-			},
-		})
-		return
-	}
-
-	output.WriteString(fmt.Sprintf("Push successful to branch: %s\n", branch))
-	if len(pushOut) > 0 {
-		output.WriteString(string(pushOut))
-	}
-
-	sendResult(writer, id, map[string]interface{}{
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": output.String(),
-			},
-		},
-	})
-}
-
-func parseID(raw json.RawMessage) (interface{}, error) {
-	var asString string
-	if err := json.Unmarshal(raw, &asString); err == nil {
-		return asString, nil
-	}
-
-	var asNumber float64
-	if err := json.Unmarshal(raw, &asNumber); err == nil {
-		return asNumber, nil
-	}
-
-	return nil, fmt.Errorf("unsupported id type")
-}
-
-func sendResult(writer *bufio.Writer, id interface{}, result interface{}) {
-	resp := rpcResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Result:  result,
-	}
-	send(writer, resp)
-}
-
-func sendError(writer *bufio.Writer, id interface{}, code int, message string) {
-	resp := rpcResponse{
-		JSONRPC: "2.0",
-		ID:      id,
-		Error: &rpcError{
-			Code:    code,
-			Message: message,
-		},
-	}
-	send(writer, resp)
-}
-
-func send(writer *bufio.Writer, payload interface{}) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "mcp: marshal error: %v\n", err)
-		return
-	}
-	body = append(body, '\n')
-	if _, err := writer.Write(body); err != nil {
-		fmt.Fprintf(os.Stderr, "mcp: write error: %v\n", err)
-		return
-	}
-	_ = writer.Flush()
-}
-
-func readFrame(reader *bufio.Reader) ([]byte, error) {
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF && len(line) > 0 {
-				return []byte(line), nil
-			}
-			return nil, err
-		}
-
-		line = strings.TrimSuffix(line, "\n")
-		if line != "" {
-			return []byte(line), nil
 		}
 	}
 }

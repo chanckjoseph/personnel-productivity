@@ -1,10 +1,44 @@
 # devtools-mcp
 
-MCP server for automating developer workflows: Git commit and push operations with credential management.
+MCP server for automating developer workflows: Git commit and push operations with credential management, plus **scientific debugging tools**.
 
-**What it does:** Provides `git_commit` and `git_push` tools that agents can call without worrying about credentials. The server reads `.pat` and `.username` from the workspace root and handles authentication automatically.
+**What it does:** Provides `git_commit`, `git_push` tools that agents can call without worrying about credentials. The server reads `.pat` and `.username` from the workspace root and handles authentication automatically. **NEW:** Adds comprehensive debugging framework implementing the scientific method (6-step hypothesis-driven debugging).
 
 **Platforms:** Windows | Linux | macOS
+
+## 📚 Documentation
+
+- **[DEBUGGING.md](DEBUGGING.md)** ← **Start here for debugging tools!**
+  - 6-step scientific debugging workflow
+  - Interactive guidance through hypothesis → experimentation → analysis → fix
+  - Session persistence and audit trail
+
+- **[../DEBUGGING_DEMO.md](../DEBUGGING_DEMO.md)** ← **See a complete example!**
+  - Real-world bank account race condition bug
+  - Step-by-step walkthrough of 6-step debugging method
+  - JSON-RPC tool calls with expected outputs
+  - Demonstrates why scientific method beats guessing
+
+- [Git Operations](#git-operations) - Commit and push automation
+
+## 🚀 Try the Demo
+
+**See the debugging tools in action:**
+
+1. **Run the race condition demo from the project root:**
+   ```bash
+   go run demo_bank_race_condition.go
+   ```
+   This shows:
+   - Buggy code losing money in concurrent withdrawals (~80% error rate)
+   - Comparative runs showing non-deterministic failures
+   - Fixed code with mutex (0% error rate)
+
+2. **Read the debugging walkthrough in [../DEBUGGING_DEMO.md](../DEBUGGING_DEMO.md)** to see how the scientific method finds the root cause
+
+3. **Use the tools in your own debugging:**
+   - Call `debug_workflow` for guided 6-step debugging
+   - Or use individual tools (`formulate_hypothesis`, `design_experiment`, etc.) for fine control
 
 ## Quick Start
 

@@ -2,12 +2,48 @@
 
 Personal collection of productivity tools and MCP servers for AI agents.
 
+## 📚 Documentation Hub
+
+**Start here:**
+- **[TOOLS_REFERENCE.md](TOOLS_REFERENCE.md)** — All 12 tools organized by category with clear naming
+- **[DEBUGGING_DEMO.md](DEBUGGING_DEMO.md)** — Real-world debugging example (bank account race condition)
+
+**Detailed guides:**
+- [devtools-mcp/DEBUGGING.md](devtools-mcp/DEBUGGING.md) — Complete debugging tool documentation
+- [devtools-mcp/README.md](devtools-mcp/README.md) — MCP server setup
+
+## 🛠️ Available Tools (12 Total)
+
+### Project Tools (1)
+| Tool | Purpose |
+|------|---------|
+| `project_structure` | Inspect project layout and code organization |
+
+### Git Tools (3)
+| Tool | Purpose |
+|------|---------|
+| `git_status` | Get repository status (URL, branch, changes) |
+| `git_commit` | Stage and commit all changes with message |
+| `git_push` | Push commits to GitHub with authentication |
+
+### Debug Tools (8)
+| Tool | Purpose |
+|------|---------|
+| `debug_start_session` | Create new debugging session |
+| `debug_session_state` | Query session state and metadata |
+| `debug_update_context` | Store debugging context in session |
+| `debug_formulate_hypothesis` | Record testable hypothesis |
+| `debug_design_experiment` | Design controlled experiment |
+| `debug_analyze_results` | Analyze results and validate hypothesis |
+| `debug_session_history` | Show iteration history |
+| `debug_workflow` | Interactive 6-step debugging orchestrator |
+
 ## MCP Servers
 
-This workspace includes two Model Context Protocol (MCP) servers:
+This workspace includes MCP servers:
 
-- **[hello-go-mcp](./go-hello-mcp)** - Simple greeting tool (example/reference)
-- **[devtools-mcp](./devtools-mcp)** - Git workflow automation (commit, push, status)
+- **[devtools-mcp](./devtools-mcp)** - Main server: Project inspection, Git automation, Scientific debugging
+- **[go-hello-mcp](./go-hello-mcp)** - Example server (reference implementation)
 
 ### Getting Started with MCPs
 

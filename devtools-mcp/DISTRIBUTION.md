@@ -66,6 +66,35 @@ If you received `install.sh`:
 
 ## For Developers: Building the Installers
 
+### ⚠️ IMPORTANT: Always Build Fresh Before Distribution
+
+**NEVER distribute a pre-built exe directly.** Always rebuild from source to ensure you're distributing the latest version.
+
+**Before each release, run ONE of these:**
+
+**Windows:**
+```batch
+distribute.bat
+```
+
+**Linux/macOS:**
+```bash
+chmod +x distribute.sh
+./distribute.sh
+```
+
+These scripts:
+- ✓ Rebuild the binary from the latest source code
+- ✓ Verify the build succeeded
+- ✓ Stamp the build with current date/time
+- ✓ Ensure the `bin/` directory is always fresh
+
+**Then proceed with installer creation:**
+- Windows: `build-installer.bat` → creates `install.exe`
+- Linux: `build-linux.sh` → creates `install.sh`
+
+---
+
 ### Prerequisites
 - **Docker** - Required for cross-platform binary compilation
 - **InnoSetup 6** (Windows only) - Download from https://jrsoftware.org/isdl.php (optional)
@@ -165,7 +194,9 @@ devtools-mcp/
 ├── installer.iss              ← Windows installer script
 ├── setup.bat                  ← Windows binary builder
 ├── setup.sh                   ← Unix binary builder
-├── build-installer.bat        ← Windows installer builder
+├── distribute.bat             ← ⭐ Use for Windows distribution (rebuilds fresh)
+├── distribute.sh              ← ⭐ Use for Linux/macOS distribution (rebuilds fresh)
+├── build-installer.bat        ← Windows installer builder (run after distribute.bat)
 ├── build-linux.sh             ← Linux installer builder
 ├── build-all.sh               ← Cross-platform builder
 ├── install.bat                ← Lightweight Windows installer
@@ -290,14 +321,30 @@ A: Ensure Docker Desktop is running: `docker --version`
 
 When releasing updates:
 
-1. Update version in `installer.iss`:
+1. **Make code changes** to `main.go`, `types.go`, etc.
+
+2. **Rebuild the binary FROM SOURCE:**
+   - Windows: `distribute.bat`
+   - Linux: `./distribute.sh`
+
+3. **Build the installer:**
+   - Windows: `build-installer.bat` → creates `install.exe`
+   - Linux: `build-linux.sh` → creates `install.sh`
+
+4. **Update version in `installer.iss` (Windows only):**
    ```
    AppVersion=1.1.0
    ```
 
-2. Rebuild: `build-installer.bat`
+5. **Distribute** the installer to end users
 
-3. This creates a new `install.exe` with the latest binary
+6. **Tag the release** in Git:
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+
+This workflow ensures `bin/devtools-mcp.exe` always reflects the latest source code.
 
 ---
 

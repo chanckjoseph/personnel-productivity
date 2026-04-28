@@ -6,7 +6,10 @@
     },
     "devtools-mcp": {
       "type": "stdio",
-      "command": "${workspaceFolder}/devtools-mcp/bin/devtools-mcp.exe"
+      "command": "${workspaceFolder}/devtools-mcp/bin/devtools-mcp.exe",
+      "env": {
+        "GIT_WORK_DIR": "${workspaceFolder}/devtools-mcp"
+      }
     }
   }
 }

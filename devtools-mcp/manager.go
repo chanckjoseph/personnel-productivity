@@ -51,6 +51,7 @@ func (sm *SessionManager) CreateSession(bugDescription string) (*SessionContext,
 		IterationCount:  0,
 		BugFixed:        false,
 		Metadata:        make(map[string]interface{}),
+		Phase:           "discovery",
 	}
 
 	sm.activeSessions[sessionID] = session

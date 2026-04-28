@@ -45,20 +45,23 @@ type toolsCallParams struct {
 
 // SessionContext holds all debugging session state
 type SessionContext struct {
-	ID              string                 `json:"id"`
-	StartTime       time.Time              `json:"start_time"`
-	EndTime         *time.Time             `json:"end_time,omitempty"`
-	BugDescription  string                 `json:"bug_description,omitempty"`
-	Environment     map[string]string      `json:"environment,omitempty"`
-	Requests        map[string]*Request    `json:"requests,omitempty"`
-	Results         map[string]*Result     `json:"results,omitempty"`
-	Hypotheses      []Hypothesis           `json:"hypotheses,omitempty"`
-	Experiments     []Experiment           `json:"experiments,omitempty"`
-	CurrentStep     string                 `json:"current_step,omitempty"`     // Current step in workflow
-	IterationCount  int                    `json:"iteration_count"`
-	BugFixed        bool                   `json:"bug_fixed"`
-	FixDescription  string                 `json:"fix_description,omitempty"`
-	Metadata        map[string]interface{} `json:"metadata,omitempty"`
+	ID                 string                 `json:"id"`
+	StartTime          time.Time              `json:"start_time"`
+	EndTime            *time.Time             `json:"end_time,omitempty"`
+	BugDescription     string                 `json:"bug_description,omitempty"`
+	Environment        map[string]string      `json:"environment,omitempty"`
+	Requests           map[string]*Request    `json:"requests,omitempty"`
+	Results            map[string]*Result     `json:"results,omitempty"`
+	Hypotheses         []Hypothesis           `json:"hypotheses,omitempty"`
+	CompletedHypotheses []HypothesisOutcome   `json:"completed_hypotheses,omitempty"` // Tested hypotheses in this session
+	Experiments        []Experiment           `json:"experiments,omitempty"`
+	CurrentStep        string                 `json:"current_step,omitempty"`     // Current step in workflow
+	IterationCount     int                    `json:"iteration_count"`
+	BugFixed           bool                   `json:"bug_fixed"`
+	FixDescription     string                 `json:"fix_description,omitempty"`
+	Metadata           map[string]interface{} `json:"metadata,omitempty"`
+	Phase              string                 `json:"phase,omitempty"` // discovery or fix
+	DistilledKnowledge string                 `json:"distilled_knowledge,omitempty"` // Condensed findings from learn phase
 }
 
 // Request represents a single tool request in the session
@@ -84,12 +87,39 @@ type Result struct {
 
 // Hypothesis represents a testable hypothesis in the scientific method
 type Hypothesis struct {
-	ID              string    `json:"id"`
-	CreatedAt       time.Time `json:"created_at"`
-	HypothesisText  string    `json:"hypothesis_text"`
-	ExpectedOutcome string    `json:"expected_outcome,omitempty"`
-	IsFalsifiable   bool      `json:"is_falsifiable"`
-	ValidationNotes string    `json:"validation_notes,omitempty"`
+	ID                  string    `json:"id"`
+	CreatedAt           time.Time `json:"created_at"`
+	BugObservation      string    `json:"bug_observation"`          // What was observed from the bug
+	SuspectedComponent  string    `json:"suspected_component"`      // Where in the code/system
+	RootCauseTheory     string    `json:"root_cause_theory"`        // Why you think it's broken
+	EvidenceChain       string    `json:"evidence_chain"`           // How cause produces symptom
+	FalsificationTest   string    `json:"falsification_test"`       // What would prove you wrong
+	HypothesisText      string    `json:"hypothesis_text"`          // Synthesized statement
+	ExpectedOutcome     string    `json:"expected_outcome,omitempty"`
+	IsFalsifiable       bool      `json:"is_falsifiable"`
+	ValidationNotes     string    `json:"validation_notes,omitempty"`
+	Conclusion          string    `json:"conclusion,omitempty"`     // supported, refuted, inconclusive
+	TestedAt            *time.Time `json:"tested_at,omitempty"`     // When hypothesis was tested
+}
+
+// HypothesisOutcome tracks what was learned from testing a hypothesis
+type HypothesisOutcome struct {
+	Hypothesis  Hypothesis `json:"hypothesis"`
+	Conclusion  string     `json:"conclusion"`           // supported, refuted, inconclusive
+	Findings    string     `json:"findings"`             // What we learned
+	TestedAt    time.Time  `json:"tested_at"`
+	IterationNum int       `json:"iteration_number"`
+}
+
+// SessionSummary provides a condensed view of a completed debugging session for reference
+type SessionSummary struct {
+	SessionID       string            `json:"session_id"`
+	BugDescription  string            `json:"bug_description"`
+	TestedHypotheses []HypothesisOutcome `json:"tested_hypotheses"`
+	FinalConclusion string            `json:"final_conclusion"`      // supported, refuted, inconclusive, or fixed
+	SimilarityScore float64           `json:"similarity_score,omitempty"` // 0-1, how similar to current bug
+	CreatedAt       time.Time         `json:"created_at"`
+	ResolvedAt      *time.Time        `json:"resolved_at,omitempty"`
 }
 
 // Experiment represents an experiment design in the scientific method

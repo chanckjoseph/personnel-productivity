@@ -35,10 +35,10 @@ func handleDebugWorkflow(writer *bufio.Writer, id interface{}, args map[string]i
 	switch step {
 	case "start":
 		handleWorkflowStart(writer, id, args)
+	case "learn":
+		handleWorkflowLearn(writer, id, sessionID, args)
 	case "hypothesis":
 		handleWorkflowHypothesis(writer, id, sessionID, args)
-	case "predict":
-		handleWorkflowPredict(writer, id, sessionID, args)
 	case "experiment":
 		handleWorkflowExperiment(writer, id, sessionID, args)
 	case "analyze":
@@ -48,7 +48,7 @@ func handleDebugWorkflow(writer *bufio.Writer, id interface{}, args map[string]i
 	case "iterate":
 		handleWorkflowIterate(writer, id, sessionID, args)
 	default:
-		sendError(writer, id, -32602, "step must be one of: start, hypothesis, predict, experiment, analyze, fix, iterate")
+		sendError(writer, id, -32602, "step must be one of: start, learn, hypothesis, experiment, analyze, fix, iterate")
 	}
 }
 
@@ -87,20 +87,151 @@ func handleWorkflowStart(writer *bufio.Writer, id interface{}, args map[string]i
 	guidance.WriteString("Bug Description (Your Observation):\n")
 	guidance.WriteString(fmt.Sprintf("  %s\n\n", bugDescription))
 	guidance.WriteString("Process Overview:\n")
-	guidance.WriteString("  The scientific method will guide us through 6 steps:\n")
+	guidance.WriteString("  The scientific method will guide us through these steps:\n")
 	guidance.WriteString("    1. Observation      → Define what's broken (DONE)\n")
-	guidance.WriteString("    🔄 2. Hypothesis       → Propose a testable root cause\n")
-	guidance.WriteString("    3. Prediction       → State expected outcome if true\n")
+	guidance.WriteString("    🔄 2. Context         → Gather codebase context and investigation\n")
+	guidance.WriteString("    3. Hypothesis       → Propose a testable root cause\n")
 	guidance.WriteString("    4. Experiment       → Design controlled tests\n")
 	guidance.WriteString("    5. Analysis         → Evaluate results\n")
 	guidance.WriteString("    6. Fix/Iterate      → Apply fix or test new hypothesis\n\n")
-	guidance.WriteString("NEXT STEP: Formulate Hypothesis\n")
-	guidance.WriteString("  Based on the bug description, propose your hypothesis about the root cause.\n")
-	guidance.WriteString("  Call 'hypothesis' step with a testable statement.\n")
+	guidance.WriteString("NEXT STEP: Gather Context\n")
+	guidance.WriteString("  Investigate the codebase and gather context about the bug.\n")
+	guidance.WriteString("  Call 'learn' step to start the investigation phase.\n")
 
 	sendResult(writer, id, map[string]interface{}{
 		"session_id": session.ID,
 		"step":       "start",
+		"content": []map[string]interface{}{
+			{
+				"type": "text",
+				"text": guidance.String(),
+			},
+		},
+	})
+}
+
+func handleWorkflowLearn(writer *bufio.Writer, id interface{}, sessionID string, args map[string]interface{}) {
+	if sessionID == "" {
+		sendError(writer, id, -32602, "session_id required")
+		return
+	}
+
+	session, err := sessionMgr.GetSession(sessionID)
+	if err != nil {
+		sendError(writer, id, -32602, fmt.Sprintf("Session not found: %v", err))
+		return
+	}
+
+	// Phase enforcement: learn is only allowed in discovery phase
+	if session.Phase != "discovery" {
+		sendError(writer, id, -32602, fmt.Sprintf("learn step only allowed in discovery phase (current: %s)", session.Phase))
+		return
+	}
+
+	// Extract optional investigation focus
+	investigationFocus := ""
+	if focusRaw, ok := args["investigation_focus"]; ok {
+		if focus, ok := focusRaw.(string); ok {
+			investigationFocus = strings.TrimSpace(focus)
+		}
+	}
+
+	// Extract optional distilled knowledge (from agent's exploration)
+	distilledKnowledge := ""
+	if distilledRaw, ok := args["distilled_knowledge"]; ok {
+		if distilled, ok := distilledRaw.(string); ok {
+			distilledKnowledge = strings.TrimSpace(distilled)
+		}
+	}
+
+	// Build learning context including what we already know
+	var learningContext strings.Builder
+
+	// 1. Surface previous hypotheses tested in this session
+	if len(session.CompletedHypotheses) > 0 {
+		learningContext.WriteString("PREVIOUS HYPOTHESES TESTED IN THIS SESSION:\n")
+		for i, outcome := range session.CompletedHypotheses {
+			learningContext.WriteString(fmt.Sprintf("  %d. %s\n", i+1, outcome.Hypothesis.HypothesisText))
+			learningContext.WriteString(fmt.Sprintf("     Result: %s\n", outcome.Conclusion))
+			if outcome.Findings != "" {
+				learningContext.WriteString(fmt.Sprintf("     Findings: %s\n", outcome.Findings))
+			}
+			learningContext.WriteString("\n")
+		}
+	}
+
+	// 2. Store distilled knowledge for hypothesis step
+	if distilledKnowledge != "" {
+		learningContext.WriteString("CURRENT SESSION INVESTIGATION FINDINGS:\n")
+		learningContext.WriteString(distilledKnowledge)
+		learningContext.WriteString("\n\n")
+		session.DistilledKnowledge = distilledKnowledge
+	}
+
+	session.CurrentStep = "learn"
+	_ = sessionMgr.UpdateSession(session)
+
+	var guidance strings.Builder
+	guidance.WriteString("═══════════════════════════════════════════════════════════════\n")
+	guidance.WriteString("  STEP 2: CONTEXT GATHERING (DISCOVERY PHASE)\n")
+	guidance.WriteString("═══════════════════════════════════════════════════════════════\n\n")
+	guidance.WriteString("Before formulating a hypothesis, gather context about the codebase.\n")
+	guidance.WriteString("Investigate DIRECTLY using available tools. Do NOT repeat exploration.\n\n")
+
+	// Show what we already know
+	if learningContext.Len() > 0 {
+		guidance.WriteString("WHAT WE ALREADY KNOW:\n")
+		guidance.WriteString(learningContext.String())
+		guidance.WriteString("\n")
+	}
+
+	guidance.WriteString("INVESTIGATION CHECKLIST:\n\n")
+	guidance.WriteString("  📁 Project Structure\n")
+	guidance.WriteString("     - Use 'project_structure' tool to explore the codebase\n")
+	guidance.WriteString("     - Understand the architecture and module organization\n\n")
+
+	guidance.WriteString("  🔍 Bug Context\n")
+	if investigationFocus != "" {
+		guidance.WriteString(fmt.Sprintf("     - Focus: %s\n\n", investigationFocus))
+	} else {
+		guidance.WriteString("     - Where does the bug occur? (component, module, file)\n")
+		guidance.WriteString("     - What's the execution path?\n\n")
+	}
+
+	guidance.WriteString("  📊 Evidence to Gather\n")
+	guidance.WriteString("     - Error messages or logs\n")
+	guidance.WriteString("     - Stack traces\n")
+	guidance.WriteString("     - Reproduction steps\n")
+	guidance.WriteString("     - Related code files\n")
+	guidance.WriteString("     - Configuration or environment details\n\n")
+
+	guidance.WriteString("  🧩 Components to Identify\n")
+	guidance.WriteString("     - Which modules/functions are involved?\n")
+	guidance.WriteString("     - What's the data flow?\n")
+	guidance.WriteString("     - Where's the most likely failure point?\n\n")
+
+	guidance.WriteString("DISTILLED KNOWLEDGE FORMAT:\n")
+	guidance.WriteString("When calling 'hypothesis' step, provide distilled_knowledge parameter:\n")
+	guidance.WriteString("  • Suspected files/modules: [list specific file paths]\n")
+	guidance.WriteString("  • Key patterns found: [describe error patterns or behavior]\n")
+	guidance.WriteString("  • Error indicators: [key symptoms or error messages]\n")
+	guidance.WriteString("  • Relevant context: [essential environment/config details]\n\n")
+
+	guidance.WriteString("THEN provide the 5 required hypothesis components:\n")
+	guidance.WriteString("  • bug_observation: What was observed\n")
+	guidance.WriteString("  • suspected_component: Where you think the bug is\n")
+	guidance.WriteString("  • root_cause_theory: Why that component is broken\n")
+	guidance.WriteString("  • evidence_chain: How cause leads to symptom\n")
+	guidance.WriteString("  • falsification_test: What would prove you wrong\n")
+
+	sendResult(writer, id, map[string]interface{}{
+		"session_id": session.ID,
+		"step":       "learn",
+		"context": map[string]interface{}{
+			"what_we_know":     learningContext.String(),
+			"what_to_explore":  investigationFocus,
+			"session_history":  len(session.CompletedHypotheses),
+		},
 		"content": []map[string]interface{}{
 			{
 				"type": "text",
@@ -122,31 +253,109 @@ func handleWorkflowHypothesis(writer *bufio.Writer, id interface{}, sessionID st
 		return
 	}
 
-	// Extract hypothesis
-	hypothesisRaw, ok := args["hypothesis"]
-	if !ok {
-		sendError(writer, id, -32602, "hypothesis required for hypothesis step")
+	// Phase enforcement: hypothesis is only allowed in discovery phase
+	if session.Phase != "discovery" {
+		sendError(writer, id, -32602, fmt.Sprintf("hypothesis step only allowed in discovery phase (current: %s)", session.Phase))
 		return
 	}
 
-	hypothesis, ok := hypothesisRaw.(string)
-	if !ok {
-		sendError(writer, id, -32602, "hypothesis must be a string")
+	// Extract structured hypothesis components
+	extractString := func(key string) string {
+		if raw, ok := args[key]; ok {
+			if s, ok := raw.(string); ok {
+				return strings.TrimSpace(s)
+			}
+		}
+		return ""
+	}
+
+	// Get distilled knowledge from learn phase if available
+	distilledKnowledge := extractString("distilled_knowledge")
+
+	bugObservation := extractString("bug_observation")
+	suspectedComponent := extractString("suspected_component")
+	rootCauseTheory := extractString("root_cause_theory")
+	evidenceChain := extractString("evidence_chain")
+	falsificationTest := extractString("falsification_test")
+
+	// Validate all required components are provided
+	missingFields := []string{}
+	if bugObservation == "" {
+		missingFields = append(missingFields, "bug_observation")
+	}
+	if suspectedComponent == "" {
+		missingFields = append(missingFields, "suspected_component")
+	}
+	if rootCauseTheory == "" {
+		missingFields = append(missingFields, "root_cause_theory")
+	}
+	if evidenceChain == "" {
+		missingFields = append(missingFields, "evidence_chain")
+	}
+	if falsificationTest == "" {
+		missingFields = append(missingFields, "falsification_test")
+	}
+
+	if len(missingFields) > 0 {
+		var guidance strings.Builder
+		guidance.WriteString("╔════════════════════════════════════════════════════════════╗\n")
+		guidance.WriteString("║  STEP 3: HYPOTHESIS FORMULATION (INCOMPLETE)              ║\n")
+		guidance.WriteString("╚════════════════════════════════════════════════════════════╝\n\n")
+		guidance.WriteString("A good hypothesis requires FIVE structured components:\n\n")
+		
+		components := []map[string]string{
+			{"name": "bug_observation", "display": "BUG OBSERVATION", "desc": "What exactly was observed from the bug?"},
+			{"name": "suspected_component", "display": "SUSPECTED COMPONENT", "desc": "Which code/component do you suspect is involved?"},
+			{"name": "root_cause_theory", "display": "ROOT CAUSE THEORY", "desc": "Why do you think that component is broken?"},
+			{"name": "evidence_chain", "display": "EVIDENCE CHAIN", "desc": "How does the root cause produce the observed symptom?"},
+			{"name": "falsification_test", "display": "FALSIFICATION TEST", "desc": "What evidence would prove you wrong?"},
+		}
+
+		for _, comp := range components {
+			status := "✓"
+			for _, missing := range missingFields {
+				if missing == comp["name"] {
+					status = "✗"
+					break
+				}
+			}
+			guidance.WriteString(fmt.Sprintf("%s %s\n", status, comp["display"]))
+			guidance.WriteString(fmt.Sprintf("   %s\n\n", comp["desc"]))
+		}
+
+		guidance.WriteString("EXAMPLE:\n")
+		guidance.WriteString("  bug_observation: \"API returns 504 timeout every 5 minutes\"\n")
+		guidance.WriteString("  suspected_component: \"DbManager.GetConnection()\"\n")
+		guidance.WriteString("  root_cause_theory: \"Connection pool exhaustion - defaults to 10 but concurrent requests spike to 50+\"\n")
+		guidance.WriteString("  evidence_chain: \"Pool maxed → connections block → 30s timeout → 504 error\"\n")
+		guidance.WriteString("  falsification_test: \"Increase pool size to 100; if timeout stops, hypothesis is correct\"\n\n")
+
+		guidance.WriteString("RETRY with all five components filled in.\n")
+
+		sendError(writer, id, -32602, fmt.Sprintf("Missing components: %s", strings.Join(missingFields, ", ")))
 		return
 	}
 
-	hypothesis = strings.TrimSpace(hypothesis)
-	if hypothesis == "" {
-		sendError(writer, id, -32602, "hypothesis cannot be empty")
-		return
-	}
+	// Synthesize hypothesis text from components
+	hypothesisText := fmt.Sprintf(
+		"The bug is caused by %s: %s. This produces the symptom (%s) through this mechanism: %s",
+		suspectedComponent,
+		rootCauseTheory,
+		bugObservation,
+		evidenceChain,
+	)
 
-	// Create hypothesis (NO VALIDATION - agent owns quality)
+	// Create hypothesis with all structured components
 	hyp := Hypothesis{
-		ID:            fmt.Sprintf("hyp_%d", time.Now().UnixNano()),
-		CreatedAt:     time.Now(),
-		HypothesisText: hypothesis,
-		IsFalsifiable: true, // Assume true; agent is responsible for testability
+		ID:                fmt.Sprintf("hyp_%d", time.Now().UnixNano()),
+		CreatedAt:         time.Now(),
+		BugObservation:    bugObservation,
+		SuspectedComponent: suspectedComponent,
+		RootCauseTheory:   rootCauseTheory,
+		EvidenceChain:     evidenceChain,
+		FalsificationTest: falsificationTest,
+		HypothesisText:    hypothesisText,
+		IsFalsifiable:     true,
 	}
 
 	session.Hypotheses = append(session.Hypotheses, hyp)
@@ -155,89 +364,40 @@ func handleWorkflowHypothesis(writer *bufio.Writer, id interface{}, sessionID st
 
 	var guidance strings.Builder
 	guidance.WriteString("═══════════════════════════════════════════════════════════════\n")
-	guidance.WriteString("  STEP 2: HYPOTHESIS RECORDED\n")
+	guidance.WriteString("  STEP 3: HYPOTHESIS RECORDED ✓\n")
 	guidance.WriteString("═══════════════════════════════════════════════════════════════\n\n")
-	guidance.WriteString("Your Hypothesis:\n")
-	guidance.WriteString(fmt.Sprintf("  %s\n\n", hypothesis))
-	guidance.WriteString("Evaluation (Your Responsibility):\n")
-	guidance.WriteString("  ✓ Is this hypothesis testable?\n")
-	guidance.WriteString("  ✓ Can you think of evidence that would prove it wrong?\n")
-	guidance.WriteString("  ✓ Does it explain the observed symptoms?\n")
-	guidance.WriteString("  ✓ Is it specific enough to guide experimentation?\n\n")
+
+	guidance.WriteString("STRUCTURED HYPOTHESIS COMPONENTS:\n\n")
+	guidance.WriteString(fmt.Sprintf("📍 Bug Observation:\n  %s\n\n", bugObservation))
+	guidance.WriteString(fmt.Sprintf("🔍 Suspected Component:\n  %s\n\n", suspectedComponent))
+	guidance.WriteString(fmt.Sprintf("💡 Root Cause Theory:\n  %s\n\n", rootCauseTheory))
+	guidance.WriteString(fmt.Sprintf("🔗 Evidence Chain (Cause → Symptom):\n  %s\n\n", evidenceChain))
+	guidance.WriteString(fmt.Sprintf("❌ Falsification Test (What Would Prove You Wrong):\n  %s\n\n", falsificationTest))
+
+	guidance.WriteString("SYNTHESIZED HYPOTHESIS:\n")
+	guidance.WriteString(fmt.Sprintf("  \"%s\"\n\n", hypothesisText))
+
+	guidance.WriteString("EVALUATION:\n")
+	guidance.WriteString("  ✓ This hypothesis IS testable - the falsification test shows how to disprove it\n")
+	guidance.WriteString("  ✓ It explains the observed symptoms through a causal mechanism\n")
+	guidance.WriteString("  ✓ It identifies a specific component, not vague speculation\n\n")
+
 	guidance.WriteString("Next Step:\n")
-	guidance.WriteString("  If confident in your hypothesis, call 'predict' step.\n")
-	guidance.WriteString("  Refine and resubmit if you have concerns about testability.\n")
+	guidance.WriteString("  Call 'experiment' step to design a test based on the falsification_test.\n")
 
 	sendResult(writer, id, map[string]interface{}{
-		"step":           "hypothesis",
-		"hypothesis_id":  hyp.ID,
-		"content": []map[string]interface{}{
-			{
-				"type": "text",
-				"text": guidance.String(),
-			},
+		"step":              "hypothesis",
+		"hypothesis_id":     hyp.ID,
+		"hypothesis_pillar": map[string]interface{}{
+			"hypothesis_id":      hyp.ID,
+			"bug_observation":    bugObservation,
+			"suspected_component": suspectedComponent,
+			"root_cause_theory":  rootCauseTheory,
+			"evidence_chain":     evidenceChain,
+			"falsification_test": falsificationTest,
+			"hypothesis_text":    hypothesisText,
 		},
-	})
-}
-
-func handleWorkflowPredict(writer *bufio.Writer, id interface{}, sessionID string, args map[string]interface{}) {
-	if sessionID == "" {
-		sendError(writer, id, -32602, "session_id required")
-		return
-	}
-
-	session, err := sessionMgr.GetSession(sessionID)
-	if err != nil {
-		sendError(writer, id, -32602, fmt.Sprintf("Session not found: %v", err))
-		return
-	}
-
-	if len(session.Hypotheses) == 0 {
-		sendError(writer, id, -32602, "no hypothesis found - use hypothesis step first")
-		return
-	}
-
-	// Extract prediction
-	predictionRaw, ok := args["prediction"]
-	if !ok {
-		sendError(writer, id, -32602, "prediction required for predict step")
-		return
-	}
-
-	prediction, ok := predictionRaw.(string)
-	if !ok {
-		sendError(writer, id, -32602, "prediction must be a string")
-		return
-	}
-
-	prediction = strings.TrimSpace(prediction)
-	if prediction == "" {
-		sendError(writer, id, -32602, "prediction cannot be empty")
-		return
-	}
-
-	// Store prediction in metadata
-	if session.Metadata == nil {
-		session.Metadata = make(map[string]interface{})
-	}
-	session.Metadata["prediction"] = prediction
-	session.CurrentStep = "predict"
-	_ = sessionMgr.UpdateSession(session)
-
-	var guidance strings.Builder
-	guidance.WriteString("═══════════════════════════════════════════════════════════════\n")
-	guidance.WriteString("  STEP 3: PREDICTION RECORDED\n")
-	guidance.WriteString("═══════════════════════════════════════════════════════════════\n\n")
-	guidance.WriteString(fmt.Sprintf("Hypothesis (from Step 2):\n  %s\n\n", session.Hypotheses[len(session.Hypotheses)-1].HypothesisText))
-	guidance.WriteString(fmt.Sprintf("Your Prediction:\n  %s\n\n", prediction))
-	guidance.WriteString("Analysis:\n")
-	guidance.WriteString("  A prediction transforms your hypothesis into a testable statement.\n")
-	guidance.WriteString("  It defines the observable outcome you expect if your hypothesis is correct.\n\n")
-	guidance.WriteString("Next Step:\n")
-	guidance.WriteString("  Call 'experiment' step to design how you'll test this prediction.\n")
-
-	sendResult(writer, id, map[string]interface{}{
-		"step": "predict",
+		"distilled_knowledge": distilledKnowledge,
 		"content": []map[string]interface{}{
 			{
 				"type": "text",
@@ -256,6 +416,12 @@ func handleWorkflowExperiment(writer *bufio.Writer, id interface{}, sessionID st
 	session, err := sessionMgr.GetSession(sessionID)
 	if err != nil {
 		sendError(writer, id, -32602, fmt.Sprintf("Session not found: %v", err))
+		return
+	}
+
+	// Phase enforcement: experiment is only allowed in discovery phase
+	if session.Phase != "discovery" {
+		sendError(writer, id, -32602, fmt.Sprintf("experiment step only allowed in discovery phase (current: %s)", session.Phase))
 		return
 	}
 
@@ -435,6 +601,12 @@ func handleWorkflowAnalyze(writer *bufio.Writer, id interface{}, sessionID strin
 		return
 	}
 
+	// Phase enforcement: analyze is only allowed in discovery phase
+	if session.Phase != "discovery" {
+		sendError(writer, id, -32602, fmt.Sprintf("analyze step only allowed in discovery phase (current: %s)", session.Phase))
+		return
+	}
+
 	if len(session.Experiments) == 0 {
 		sendError(writer, id, -32602, "no experiment found - use experiment step first")
 		return
@@ -504,6 +676,9 @@ func handleWorkflowAnalyze(writer *bufio.Writer, id interface{}, sessionID strin
 		guidance.WriteString("Analysis:\n")
 		guidance.WriteString("  ✓ The experimental results SUPPORT your hypothesis.\n")
 		guidance.WriteString("  The evidence demonstrates that your proposed root cause is likely correct.\n\n")
+		guidance.WriteString("PHASE TRANSITION - DISCOVERY → FIX:\n")
+		guidance.WriteString("  You are now ready to move to the Fix Phase.\n")
+		guidance.WriteString("  The next 'fix' step will transition your session to the Fix Phase.\n\n")
 		guidance.WriteString("Next Step:\n")
 		guidance.WriteString("  Call 'fix' step with your proposed fix description.\n")
 	} else if conclusion == "refuted" {
@@ -544,6 +719,12 @@ func handleWorkflowFix(writer *bufio.Writer, id interface{}, sessionID string, a
 		return
 	}
 
+	// Phase enforcement: fix is allowed from discovery (first transition) or fix (already in phase)
+	if session.Phase != "discovery" && session.Phase != "fix" {
+		sendError(writer, id, -32602, fmt.Sprintf("fix step only allowed after discovery phase analysis or in fix phase (current: %s)", session.Phase))
+		return
+	}
+
 	// Extract fix description
 	fixRaw, ok := args["fix_description"]
 	if !ok {
@@ -563,9 +744,16 @@ func handleWorkflowFix(writer *bufio.Writer, id interface{}, sessionID string, a
 		return
 	}
 
+	// Transition from discovery to fix phase on first fix call
+	if session.Phase == "discovery" {
+		session.Phase = "fix"
+	}
+
 	session.BugFixed = true
 	session.FixDescription = fixDescription
 	session.CurrentStep = "fix"
+	endTime := time.Now()
+	session.EndTime = &endTime
 	_ = sessionMgr.UpdateSession(session)
 
 	var guidance strings.Builder
@@ -606,6 +794,12 @@ func handleWorkflowIterate(writer *bufio.Writer, id interface{}, sessionID strin
 	session, err := sessionMgr.GetSession(sessionID)
 	if err != nil {
 		sendError(writer, id, -32602, fmt.Sprintf("Session not found: %v", err))
+		return
+	}
+
+	// Phase enforcement: iterate is only allowed in discovery phase
+	if session.Phase != "discovery" {
+		sendError(writer, id, -32602, fmt.Sprintf("iterate step only allowed in discovery phase (current: %s)", session.Phase))
 		return
 	}
 

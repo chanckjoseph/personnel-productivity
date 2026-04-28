@@ -291,14 +291,14 @@ func main() {
 				},
 				{
 					Name:        "debug_workflow",
-					Description: "Interactive 6-step scientific debugging workflow orchestrator",
+					Description: "Interactive 6-step scientific debugging workflow: start → learn → hypothesis → experiment → analyze → fix (or iterate)",
 					InputSchema: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
 							"step": map[string]interface{}{
 								"type":        "string",
-								"description": "Step: start, hypothesis, predict, experiment, analyze, fix, iterate",
-								"enum":        []string{"start", "hypothesis", "predict", "experiment", "analyze", "fix", "iterate"},
+								"description": "Step: start, learn, hypothesis, experiment, analyze, fix, iterate",
+								"enum":        []string{"start", "learn", "hypothesis", "experiment", "analyze", "fix", "iterate"},
 							},
 							"session_id": map[string]interface{}{
 								"type":        "string",
@@ -308,14 +308,27 @@ func main() {
 								"type":        "string",
 								"description": "Bug description (required for 'start')",
 							},
-							"hypothesis": map[string]interface{}{
-								"type":        "string",
-								"description": "Hypothesis (required for 'hypothesis')",
+						"bug_observation": map[string]interface{}{
+							"type":        "string",
+							"description": "What was observed from the bug (required for 'hypothesis')",
+						},
+						"suspected_component": map[string]interface{}{
+							"type":        "string",
+							"description": "Suspected code/component causing the bug (required for 'hypothesis')",
+						},
+						"root_cause_theory": map[string]interface{}{
+							"type":        "string",
+							"description": "Theory on why this component is broken (required for 'hypothesis')",
+						},
+						"evidence_chain": map[string]interface{}{
+							"type":        "string",
+							"description": "How the root cause produces the observed symptom (required for 'hypothesis')",
+						},
+						"falsification_test": map[string]interface{}{
+							"type":        "string",
+							"description": "What evidence would prove this hypothesis wrong (required for 'hypothesis')",
 							},
-							"prediction": map[string]interface{}{
-								"type":        "string",
-								"description": "Prediction (required for 'predict')",
-							},
+
 							"steps": map[string]interface{}{
 								"type":        "array",
 								"description": "Experiment steps (required for 'experiment')",
@@ -358,8 +371,16 @@ func main() {
 								"description": "Fix description (required for 'fix')",
 							},
 						},
-						"required":               []string{"step"},
-						"additionalProperties":   false,
+						"required": []string{"step"},
+					},
+				},
+				{
+					Name:        "self_build",
+					Description: "Self-rebuild: Recompile devtools-mcp from source, kill the running server, and restart VS Code. Use this after modifying devtools-mcp code to test changes immediately. No parameters required.",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{},
+						"additionalProperties": false,
 					},
 				},
 			}
@@ -396,6 +417,8 @@ func main() {
 				handleTrackIteration(writer, id, params.Arguments)
 			case "debug_workflow":
 				handleDebugWorkflow(writer, id, params.Arguments)
+			case "self_build":
+				handleSelfBuild(writer, id, params.Arguments)
 			default:
 				sendError(writer, id, -32602, fmt.Sprintf("unknown tool: %s", params.Name))
 			}

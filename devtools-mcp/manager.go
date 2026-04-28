@@ -17,9 +17,33 @@ type SessionManager struct {
 	activeSessions map[string]*SessionContext
 }
 
+// findWorkspaceRoot detects the workspace root by looking for .git or .vscode directories
+func findWorkspaceRoot(startDir string) string {
+	current := startDir
+	for {
+		// Check if .git exists (definitive workspace root)
+		if _, err := os.Stat(filepath.Join(current, ".git")); err == nil {
+			return current
+		}
+		// Check if .vscode exists (VS Code workspace indicator)
+		if _, err := os.Stat(filepath.Join(current, ".vscode")); err == nil {
+			return current
+		}
+		// Move up one directory
+		parent := filepath.Dir(current)
+		if parent == current {
+			// Reached filesystem root without finding workspace markers
+			return startDir // Fallback to original workDir
+		}
+		current = parent
+	}
+}
+
 // NewSessionManager creates and initializes a new SessionManager
 func NewSessionManager(workDir string) (*SessionManager, error) {
-	sessionsDir := filepath.Join(workDir, ".devtools-mcp", "sessions")
+	// Always use workspace root for session storage (not the MCP server's working directory)
+	workspaceRoot := findWorkspaceRoot(workDir)
+	sessionsDir := filepath.Join(workspaceRoot, ".devtools-mcp", "sessions")
 	
 	// Create sessions directory
 	if err := os.MkdirAll(sessionsDir, 0755); err != nil {

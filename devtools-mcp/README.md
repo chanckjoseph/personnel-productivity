@@ -1,12 +1,13 @@
 # devtools-mcp
 
-**MCP server** for automating developer workflows with Git operations and project exploration.
+**MCP server** for automating developer workflows with intelligent query parsing, Git operations, and project exploration.
 
 ## What It Does
 
 Provides AI agents with tools to:
+- ✅ **Parse Queries** — Transform free-form prompts into structured task plans with dependencies
 - ✅ **Automate Git** — Commit and push without credential hassles
-- ✅ **Project Exploration** — Understand project structure and status
+- ✅ **Project Exploration** — Understand project structure and repository status
 
 The server handles credentials automatically (reads `.pat` and `.username`), so agents never expose tokens.
 
@@ -53,9 +54,76 @@ chmod 600 .pat .username
 ### 3. Verify Setup
 
 You're ready. The server will auto-connect. Available tools:
-- `git_commit`, `git_push` — Git automation
+- `parse_query` — Query parsing and task breakdown
+- `project_structure` — Project exploration  
 - `git_status` — Repository status
-- `project_structure` — Project exploration
+- `git_commit`, `git_push` — Git automation
+- `self_build` — Self-rebuild and restart
+
+---
+
+## 📊 Architecture & Project Structure
+
+### Component Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    devtools-mcp Server                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │              MCP Protocol Handler                    │   │
+│  │  (main.go: initialize, tools/list, tools/call)     │   │
+│  └──────────────────────────────────────────────────────┘   │
+│                           │                                  │
+│           ┌───────────────┼───────────────┐                 │
+│           │               │               │                 │
+│           ▼               ▼               ▼                 │
+│  ┌─────────────────┐  ┌─────────────┐  ┌─────────────┐     │
+│  │  Query Engine   │  │ Git Handler │  │   Project   │     │
+│  │ (query.go)      │  │ (git.go)    │  │   Handler   │     │
+│  │                 │  │             │  │ (project.go)│     │
+│  │ • Parse         │  │ • Status    │  │             │     │
+│  │ • Validate      │  │ • Commit    │  │ • Structure │     │
+│  │ • Enrich        │  │ • Push      │  │             │     │
+│  └─────────────────┘  └─────────────┘  └─────────────┘     │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌─────────────────────────────────────┐                    │
+│  │  Prompt Analyzer & Query Types      │                    │
+│  │  (prompt_analyzer.go, query_types.go)                   │
+│  │                                     │                    │
+│  │  • Intent extraction                │                    │
+│  │  • Task breakdown                   │                    │
+│  │  • Requirement analysis             │                    │
+│  │  • Constraint identification        │                    │
+│  └─────────────────────────────────────┘                    │
+│           │                                                  │
+│           ▼                                                  │
+│  ┌──────────────────────────────────────┐                   │
+│  │     Artifact Store                   │                   │
+│  │  (artifact_store.go)                 │                   │
+│  │                                      │                   │
+│  │  Caches & indexes parsed queries     │                   │
+│  └──────────────────────────────────────┘                   │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Code Organization
+
+| File | Purpose |
+|------|---------|
+| `main.go` | MCP protocol handler, tool routing |
+| `query.go` | QueryEngine orchestration, validation, metadata |
+| `query_types.go` | Data structures (Query, Task, Intent, Requirements) |
+| `prompt_analyzer.go` | LocalAnalyzer for parsing prompts locally |
+| `artifact_store.go` | Query caching and manifest management |
+| `git.go` | Git command handlers (status, commit, push) |
+| `project.go` | Project structure exploration & query parsing handler |
+| `types.go` | MCP protocol types (rpcRequest, toolDefinition) |
+| `utils.go` | Helper functions (readFrame, sendResult, sendError) |
+| `manager.go` | Manager stubs/documentation |
 
 ---
 
@@ -94,9 +162,87 @@ Generates:
 - `bin/devtools-mcp-darwin-amd64` (macOS Intel)
 - `bin/devtools-mcp-darwin-arm64` (macOS Apple Silicon)
 
-## Using the Tools
+---
 
-### get_project_structure
+## 📚 Available Tools & API Reference
+
+### parse_query
+
+**Parse a free-form prompt into a structured Query with intent, tasks, requirements, and constraints.**
+
+Transforms user requests into actionable plans with dependencies and information requirements.
+
+**Input:**
+```json
+{
+  "prompt": "Create a new feature for user authentication"
+}
+```
+
+**Response Structure:**
+```json
+{
+  "query": {
+    "id": "2026-05-04T12-30-45-123",
+    "original_text": "Create a new feature for user authentication",
+    "intent": {
+      "primary": "Create a new feature for user authentication",
+      "secondary": ["Secure user data", "Improve login flow"],
+      "urgency": "medium",
+      "scope": "project",
+      "domain": "software",
+      "ambiguities": ["Authentication method?", "Database system?"]
+    },
+    "tasks": [
+      {
+        "id": "task_1",
+        "title": "Design authentication system",
+        "description": "Plan user auth architecture",
+        "type": "action",
+        "prerequisites": [],
+        "parallelizable": false,
+        "expected_output": "Architecture document"
+      }
+    ],
+    "information_requirements": {
+      "required": [
+        {
+          "id": "req_auth_method",
+          "name": "Authentication Method",
+          "description": "How users will authenticate",
+          "type": "choice",
+          "status": "missing",
+          "sources": []
+        }
+      ],
+      "optional": [],
+      "derived": []
+    },
+    "constraints": [
+      {
+        "type": "scope",
+        "description": "Project scope includes backend only",
+        "impact": "medium"
+      }
+    ],
+    "metadata": {
+      "query_id": "2026-05-04T12-30-45-123",
+      "created_at": "2026-05-04T12:30:45Z",
+      "analyzer_model": "local-v1",
+      "execution_time_ms": 45,
+      "confidence": 0.87,
+      "task_count": 3,
+      "requirement_count": 5,
+      "status": "success",
+      "schema_version": "1.0"
+    }
+  }
+}
+```
+
+---
+
+### project_structure
 
 Explore the directory structure and organization of the project. Useful for understanding layout, finding where to make changes, and identifying project type from the file organization.
 
@@ -119,28 +265,29 @@ Project Structure (depth: 5)
 │   ├── main.go
 │   ├── go.mod
 │   ├── Dockerfile
-│   ├── setup.bat
-│   ├── setup.sh
-│   ├── README.md
+│   ├── query.go
+│   ├── query_types.go
+│   ├── prompt_analyzer.go
+│   ├── artifact_store.go
+│   ├── git.go
+│   ├── project.go
 │   └── bin/
 │       └── devtools-mcp.exe
 ├── go-hello-mcp/
 │   ├── main.go
 │   ├── go.mod
-│   ├── Dockerfile
 │   └── bin/
 │       └── hello-mcp.exe
-├── md-to-docx/
-├── .vscode/
-│   └── mcp.json
 └── README.md
 ```
 
 **What to infer:**
 - See `go.mod` → Go project
 - See `main.go` → Entry point
+- See `query.go` → Query parsing capability
 - See `Dockerfile` → Containerized
-- See `test/` or `tests/` → Has unit tests
+
+---
 
 ### git_status
 
@@ -168,6 +315,8 @@ Check repository status: URL, current branch, and list of modified/untracked fil
 }
 ```
 
+---
+
 ### git_commit
 
 Commit all staged changes with a message. Automatically runs `git add -A` to stage everything (respecting `.gitignore`), then commits with your message.
@@ -185,6 +334,8 @@ Commit all staged changes with a message. Automatically runs `git add -A` to sta
 
 **Response:** Git output showing what was staged and the commit result
 
+---
+
 ### git_push
 
 Push commits to GitHub using stored credentials.
@@ -200,113 +351,96 @@ Or omit `branch` to use the default "main".
 
 **Response:** Git push output and status
 
-## How it Works
+---
 
-- **Language:** Go 1.22
-- **Transport:** JSON-RPC over stdin/stdout
-- **Dependencies:** None (stdlib + os/exec)
-- **Credentials:** Reads from `.pat` and `.username` files (never exposed in agent commands)
+### self_build
 
-## Prerequisites
+Self-rebuild: Recompile devtools-mcp from source, kill the running server, and restart VS Code.
+
+**Input:**
+```json
+{}
+```
+
+**What it does:**
+1. Recompiles the binary from current source
+2. Kills the running MCP server process
+3. Restarts VS Code to load the new binary
+
+**Use when:**
+- You've modified devtools-mcp source code
+- You want to test changes immediately without manual rebuild
+
+---
+
+## 🔐 Credentials & Security
 
 ### Create .pat file
 
 1. Go to https://github.com/settings/tokens
 2. Generate a new Personal Access Token with `repo` scope
-3. Save the token to [`.pat`](../.pat) in the workspace root:
+3. Save the token to `.pat` in the workspace root:
    ```
    github_pat_11A...
    ```
 
 ### Create .username file
 
-Save your GitHub username to [`.username`](../.username):
+Save your GitHub username to `.username`:
 ```
 chanckjoseph
 ```
 
-## Error Handling
+### Security Notes
 
-If `.pat` or `.username` are missing, tools return helpful error messages:
+- `.pat` and `.username` are in `.gitignore` (never committed)
+- On Linux/macOS, secure them: `chmod 600 .pat .username`
+- The server reads these files locally; credentials never pass through the network
+- Tokens are used only for Git operations, never exposed in API responses
 
-```
-Cannot read .pat file. Create it at: /path/to/.pat
-Content should be your GitHub Personal Access Token (https://github.com/settings/tokens)
-```
+---
 
-This guides users (or agents reporting to users) on what to do.
+## 🔧 Implementation Details
 
-## Build Details
+- **Language:** Go 1.22
+- **Transport:** JSON-RPC 2.0 over stdin/stdout
+- **Dependencies:** Standard library only (no external packages)
+- **Error Handling:** Returns helpful error messages when credentials are missing
 
-The `setup.bat` script:
-- Checks for Docker
-- Compiles via Docker (no local Go install needed)
-- Outputs: `bin/devtools-mcp.exe`
-- Auto-removes the build container
+### File-by-File Responsibilities
 
-Manual build:
-```bash
-docker run --rm -v "%cd%":/src -w /src golang:1.22 sh -c "CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o bin/devtools-mcp.exe ."
-```
+| File | Exports |
+|------|---------|
+| `main.go` | MCP server loop, protocol routing |
+| `query.go` | `NewQueryEngine`, `Parse()` |
+| `query_types.go` | `Query`, `Intent`, `Task`, `InformationRequirement` |
+| `prompt_analyzer.go` | `NewLocalAnalyzer`, `AnalyzePrompt()` |
+| `artifact_store.go` | `NewArtifactStore`, query caching |
+| `git.go` | `handleGitStatus`, `handleGitCommit`, `handleGitPush` |
+| `project.go` | `handleGetProjectStructure`, `handleParseQuery` |
+| `types.go` | `rpcRequest`, `toolDefinition`, `toolsCallParams` |
+| `utils.go` | `readFrame()`, `sendResult()`, `sendError()` |
 
-## Recompiling After Changes
+---
 
-If you modify the source code in `main.go` or pull new changes from GitHub, you need to recompile the binary.
+## 🚀 Recompiling After Changes
+
+If you modify the source code or pull new changes, recompile:
 
 **Windows:**
-1. Stop the MCP server (or manually close it in VS Code)
-2. From the `devtools-mcp/` folder, run:
-   ```batch
-   setup.bat
-   ```
-3. Restart VS Code to load the new binary
-
-**Linux/macOS:**
-1. Stop the MCP server
-2. From the `devtools-mcp/` folder, run:
-   ```bash
-   bash setup.sh
-   ```
-3. Restart VS Code to load the new binary
-
-**When to recompile:**
-- You edited `main.go` or other source files
-- You pulled changes from GitHub
-- You want to add new tools to the MCP
-- The binary seems out of sync with the code
-
-**After recompiling:**
-- Always restart VS Code for the changes to take effect
-- The new binary will be loaded when VS Code restarts
-
-## Tool Schemas
-
-**get_project_structure:**
-- `max_depth` (integer, optional) - How deep to traverse (default: 3)
-
-**git_status:**
-- No parameters required
-
-**git_commit:**
-- `message` (string, required) - Commit message
-
-**git_push:**
-- `branch` (string, optional) - Branch name (defaults to "main")
-
-## Configuration
-
-In [`.vscode/mcp.json`](../.vscode/mcp.json), both servers will look like:
-
-```json
-{
-  "servers": {
-    "hello-go-mcp": { ... },
-    "devtools-mcp": {
-      "type": "stdio",
-      "command": "${workspaceFolder}/devtools-mcp/bin/devtools-mcp.exe"
-    }
-  }
-}
+```batch
+setup.bat
 ```
 
-Agents can now call either tool set independently.
+**Linux/macOS:**
+```bash
+bash setup.sh
+```
+
+Then restart VS Code to load the new binary.
+
+**When to recompile:**
+- Source code modifications
+- Pull updates from GitHub
+- Add new tools to the MCP
+- Binary seems out of sync with source code

@@ -61,6 +61,21 @@ func main() {
 		case "tools/list":
 			tools := []toolDefinition{
 				{
+					Name:        "parse_query",
+					Description: "Parse a free-form prompt into a structured Query with intent, tasks, requirements, and constraints. Transforms user requests into actionable plans with dependencies and information requirements.",
+					InputSchema: map[string]interface{}{
+						"type": "object",
+						"properties": map[string]interface{}{
+							"prompt": map[string]interface{}{
+								"type":        "string",
+								"description": "The free-form prompt to parse",
+							},
+						},
+						"required":               []string{"prompt"},
+						"additionalProperties":   false,
+					},
+				},
+				{
 					Name:        "project_structure",
 					Description: "Returns the directory tree and file organization of the project. Shows folder hierarchy, file names, and structure patterns that help identify project type, architecture, and where code/tests/configuration are located.",
 					InputSchema: map[string]interface{}{
@@ -131,6 +146,8 @@ func main() {
 			}
 
 			switch params.Name {
+			case "parse_query":
+				handleParseQuery(writer, id, params.Arguments)
 			case "project_structure":
 				handleGetProjectStructure(writer, id, params.Arguments)
 			case "git_status":

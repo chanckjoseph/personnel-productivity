@@ -129,3 +129,53 @@ func handleGetProjectStructure(writer *bufio.Writer, id interface{}, args map[st
 		"max_depth": maxDepth,
 	})
 }
+
+// handleParseQuery parses a free-form prompt into a structured Query
+func handleParseQuery(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
+	// Extract prompt from arguments
+	promptRaw, ok := args["prompt"]
+	if !ok {
+		sendError(writer, id, -32602, "prompt parameter is required")
+		return
+	}
+
+	prompt, ok := promptRaw.(string)
+	if !ok {
+		sendError(writer, id, -32602, "prompt must be a string")
+		return
+	}
+
+	if prompt == "" {
+		sendError(writer, id, -32602, "prompt cannot be empty")
+		return
+	}
+
+	// Get working directory
+	workDir := os.Getenv("GIT_WORK_DIR")
+	if workDir == "" {
+		workDir = "."
+	}
+
+	// Initialize artifact store for caching queries
+	artifactStore, err := NewArtifactStore(workDir)
+	if err != nil {
+		sendError(writer, id, -32602, fmt.Sprintf("Failed to initialize artifact store: %v", err))
+		return
+	}
+
+	// Create query engine with local analyzer
+	analyzer := NewLocalAnalyzer("local-v1")
+	queryEngine := NewQueryEngine(analyzer, artifactStore)
+
+	// Parse the prompt into a structured Query
+	query, err := queryEngine.Parse(prompt)
+	if err != nil {
+		sendError(writer, id, -32602, fmt.Sprintf("Failed to parse query: %v", err))
+		return
+	}
+
+	// Return the structured query
+	sendResult(writer, id, map[string]interface{}{
+		"query": query,
+	})
+}

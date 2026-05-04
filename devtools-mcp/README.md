@@ -1,12 +1,11 @@
 # devtools-mcp
 
-**MCP server** for automating developer workflows with Git operations and scientific debugging.
+**MCP server** for automating developer workflows with Git operations and project exploration.
 
 ## What It Does
 
 Provides AI agents with tools to:
 - ✅ **Automate Git** — Commit and push without credential hassles
-- ✅ **Scientific Debugging** — 6-step hypothesis-driven bug investigation
 - ✅ **Project Exploration** — Understand project structure and status
 
 The server handles credentials automatically (reads `.pat` and `.username`), so agents never expose tokens.
@@ -56,22 +55,7 @@ chmod 600 .pat .username
 You're ready. The server will auto-connect. Available tools:
 - `git_commit`, `git_push` — Git automation
 - `git_status` — Repository status
-- `debug_*` tools — Scientific debugging framework
-- `get_project_structure` — Project exploration
-
----
-
-## 📚 Documentation for Agents
-
-- **[DEBUGGING.md](DEBUGGING.md)** — Complete debugging workflow reference
-  - 6-step hypothesis-driven methodology
-  - Tool descriptions and examples
-  - Session management
-
-- **[../DEBUGGING_DEMO.md](../DEBUGGING_DEMO.md)** — Real-world example
-  - Bank account race condition bug
-  - Step-by-step debugging walkthrough
-  - Expected tool outputs
+- `project_structure` — Project exploration
 
 ---
 

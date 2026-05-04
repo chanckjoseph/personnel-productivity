@@ -1,8 +1,0 @@
-{
-  "id": "session_1777406078811092300",
-  "start_time": "2026-04-28T12:54:38.8110923-07:00",
-  "bug_description": "Bank account balance becomes inconsistent during concurrent withdrawals. Money disappears from accounts after high-load testing with 100 concurrent goroutines, each withdrawing $50 from a $10,000 account.",
-  "iteration_count": 0,
-  "bug_fixed": false,
-  "phase": "discovery"
-}

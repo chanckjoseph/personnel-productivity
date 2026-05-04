@@ -8,3 +8,4 @@ venv/
 .username
 */bin/
 *.exe
+.cache/queries/

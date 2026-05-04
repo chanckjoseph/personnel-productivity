@@ -49,15 +49,19 @@ type InformationRequires struct {
 
 // InformationRequirement describes a single piece of data the query needs.
 type InformationRequirement struct {
-	ID              string              `json:"id"`                // Unique identifier (e.g. "req_commit_message")
-	Name            string              `json:"name"`              // Human-readable name
-	Description     string              `json:"description"`       // What this is and why it's needed
-	Type            string              `json:"type"`              // "text", "number", "boolean", "choice", "file_path", "datetime", etc.
-	Status          string              `json:"status"`            // "available", "missing", "unknown", "error"
-	Sources         []Source            `json:"sources"`           // Where this can come from
-	MissingChain    *MissingInfoChain   `json:"missing_chain,omitempty"` // Recursive dependency if missing
-	DefaultValue    interface{}         `json:"default_value,omitempty"` // If available, pre-fill here
-	Constraints     string              `json:"constraints,omitempty"`   // Min/max length, allowed values, format, etc.
+	ID                  string              `json:"id"`                // Unique identifier (e.g. "req_commit_message")
+	Name                string              `json:"name"`              // Human-readable name
+	Description         string              `json:"description"`       // What this is and why it's needed
+	Type                string              `json:"type"`              // "text", "number", "boolean", "choice", "file_path", "datetime", etc.
+	Status              string              `json:"status"`            // "available", "missing", "unknown", "error"
+	Sources             []string            `json:"sources"`           // Where to search (web_search, linkedin, twitter, etc.)
+	Constraints         string              `json:"constraints,omitempty"`   // Min/max length, allowed values, format, etc.
+	SearchHints         string              `json:"search_hints,omitempty"` // Specific guidance on how to search for this
+	InferenceStrategy   string              `json:"inference_strategy,omitempty"` // What to assume if not found
+	ConfidenceIfMissing string              `json:"confidence_if_missing,omitempty"` // Confidence level without this data
+	DerivableFrom       []string            `json:"derivable_from,omitempty"` // Which other requirements this depends on
+	MissingChain        *MissingInfoChain   `json:"missing_chain,omitempty"` // Recursive dependency if missing
+	DefaultValue        interface{}         `json:"default_value,omitempty"` // If available, pre-fill here
 }
 
 // Source describes where information can be obtained.
@@ -86,17 +90,25 @@ type Constraint struct {
 	Mitigation  string `json:"mitigation,omitempty"` // How to work around it
 }
 
+// ResolutionStrategy guides the agent on how to fill in missing information requirements
+type ResolutionStrategy struct {
+	Order     []string `json:"order"`     // Priority order for resolving requirements
+	Approach  string   `json:"approach"`  // High-level strategy for filling gaps
+	Fallback  string   `json:"fallback"`  // How to handle partial/speculative answers
+}
+
 // Metadata contains execution and quality information about the query analysis.
 type Metadata struct {
-	QueryID        string    `json:"query_id"`         // Unique ID (timestamp-based: 2026-05-04T12-30-45-123)
-	CreatedAt      time.Time `json:"created_at"`       // When this query was analyzed
-	AnalyzerModel       string    `json:"analyzer_model"`        // Which analyzer model was used (e.g., "local-v1")
-	ExecutionTime  int64     `json:"execution_time_ms"` // How long analysis took (milliseconds)
-	Confidence     float64   `json:"confidence"`       // 0.0 to 1.0 - how confident in this breakdown
-	TaskCount      int       `json:"task_count"`       // Total number of tasks
-	RequirementCount int     `json:"requirement_count"` // Total information requirements
-	Status         string    `json:"status"`           // "success", "partial", "error"
-	ErrorMessage   string    `json:"error_message,omitempty"` // If status is "error"
-	SchemaVersion  string    `json:"schema_version"`   // Version of Query schema used (e.g., "1.0")
-	Notes          string    `json:"notes,omitempty"`  // Additional context or observations
+	QueryID          string              `json:"query_id"`         // Unique ID (timestamp-based: 2026-05-04T12-30-45-123)
+	CreatedAt        time.Time           `json:"created_at"`       // When this query was analyzed
+	AnalyzerModel    string              `json:"analyzer_model"`   // Which analyzer model was used (e.g., "local-v1")
+	ExecutionTime    int64               `json:"execution_time_ms"` // How long analysis took (milliseconds)
+	Confidence       float64             `json:"confidence"`       // 0.0 to 1.0 - how confident in this breakdown
+	TaskCount        int                 `json:"task_count"`       // Total number of tasks
+	RequirementCount int                 `json:"requirement_count"` // Total information requirements
+	Status           string              `json:"status"`           // "success", "partial", "error"
+	ErrorMessage     string              `json:"error_message,omitempty"` // If status is "error"
+	SchemaVersion    string              `json:"schema_version"`   // Version of Query schema used (e.g., "1.0")
+	Notes            string              `json:"notes,omitempty"`  // Additional context or observations
+	ResolutionStrategy *ResolutionStrategy `json:"resolution_strategy,omitempty"` // Guidance on filling information gaps
 }

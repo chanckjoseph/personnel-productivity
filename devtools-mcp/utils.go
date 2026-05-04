@@ -6,10 +6,9 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 )
 
 // readFrame reads a single JSON-RPC frame (line-delimited)
@@ -83,7 +82,7 @@ func send(writer *bufio.Writer, payload interface{}) {
 	_ = writer.Flush()
 }
 
-// handleSelfBuild rebuilds the devtools-mcp binary using setup scripts asynchronously
+// handleSelfBuild provides instructions for manually rebuilding devtools-mcp
 func handleSelfBuild(writer *bufio.Writer, id interface{}, args map[string]interface{}) {
 	workDir := os.Getenv("GIT_WORK_DIR")
 	if workDir == "" {
@@ -91,63 +90,49 @@ func handleSelfBuild(writer *bufio.Writer, id interface{}, args map[string]inter
 	}
 
 	binaryPath := "bin/devtools-mcp.exe"
+	setupCmd := "setup.bat"
 	if runtime.GOOS != "windows" {
 		binaryPath = "bin/devtools-mcp"
+		setupCmd = "./setup.sh"
 	}
 
-	// Send response FIRST (before server dies)
+	instructions := fmt.Sprintf(`To rebuild devtools-mcp with your code changes:
+
+1. In your terminal, navigate to the devtools-mcp directory:
+   cd %s
+
+2. Run the setup script to rebuild:
+   %s
+
+3. Once the build completes successfully, restart VS Code to pick up the new binary.
+
+The binary will be built to: %s`, workDir, setupCmd, binaryPath)
+
 	sendResult(writer, id, map[string]interface{}{
 		"content": []map[string]interface{}{
 			{
 				"type": "text",
-				"text": "Self-build started in background: killing server and rebuilding binary. Restart VS Code when ready to pick up the new version.",
+				"text": instructions,
 			},
 		},
 		"success": true,
-		"binary":  binaryPath,
-		"workdir": workDir,
 	})
+}
 
-	// Spawn an EXTERNAL process (not a goroutine) to avoid being killed with the server
-	// This way the rebuild can complete even after the server process is terminated
-	if runtime.GOOS == "windows" {
-		// Create a batch script that will rebuild asynchronously
-		script := fmt.Sprintf(`@echo off
-timeout /t 2 /nobreak
-cd /d "%s"
-call setup.bat
-if %%errorlevel%% equ 0 (
-  echo Build completed successfully. Restart VS Code to pick up the new binary.
-) else (
-  echo Build failed
-)
-`, workDir)
-		// Write script to temp file and execute it
-		tempScript := filepath.Join(os.TempDir(), "devtools-rebuild.bat")
-		if err := os.WriteFile(tempScript, []byte(script), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create rebuild script: %v\n", err)
-			return
-		}
-		// Spawn the script in a detached process
-		cmd := exec.Command("cmd", "/c", "start", "/B", tempScript)
-		cmd.Run() // Detached, so we don't wait
-	} else {
-		// For Linux/macOS, create a shell script
-		script := fmt.Sprintf(`#!/bin/bash
-sleep 2
-cd "%s"
-if ./setup.sh; then
-  echo "Build completed successfully. Restart VS Code to pick up the new binary."
-else
-  echo "Build failed"
-fi
-`, workDir)
-		tempScript := filepath.Join(os.TempDir(), "devtools-rebuild.sh")
-		if err := os.WriteFile(tempScript, []byte(script), 0755); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create rebuild script: %v\n", err)
-			return
-		}
-		cmd := exec.Command("sh", tempScript)
-		cmd.Start() // Start detached
+// generateQueryID creates a timestamp-based query ID
+func generateQueryID() string {
+	return time.Now().Format("2006-01-02T15-04-05-000")
+}
+
+// getCurrentTime returns the current time as a time.Time object
+func getCurrentTime() time.Time {
+	return time.Now()
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
 	}
+	return b
 }

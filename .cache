@@ -1,0 +1,121 @@
+{
+  "version": "1.0",
+  "queries": {
+    "1d65bdbaa0a2f50ba5f67f96b442ed17": {
+      "id": "2026-05-04T11-41-35-000",
+      "original_text": "Akane Shiga hasn't commit the future to Lulea yet. Do we know where her future will lies and how is she doing generally?",
+      "intent": {
+        "primary": "",
+        "secondary": [],
+        "urgency": "medium",
+        "scope": "local",
+        "domain": "",
+        "ambiguities": []
+      },
+      "tasks": [],
+      "information_requirements": {
+        "required": [],
+        "optional": [],
+        "derived": []
+      },
+      "constraints": [],
+      "metadata": {
+        "query_id": "2026-05-04T11-41-35-000",
+        "created_at": "2026-05-04T11:41:35.2373838-07:00",
+        "analyzer_model": "template",
+        "execution_time_ms": 0,
+        "confidence": 0,
+        "task_count": 0,
+        "requirement_count": 0,
+        "status": "template",
+        "schema_version": "1.0",
+        "notes": "Template for agent enrichment"
+      }
+    },
+    "3e8267b862560e60ac1351518d8adea5": {
+      "id": "2026-05-04T11-49-17-000",
+      "original_text": "Where is Akane Shiga currently and how is she doing?",
+      "intent": {
+        "primary": "",
+        "secondary": [],
+        "urgency": "medium",
+        "scope": "local",
+        "domain": "",
+        "ambiguities": []
+      },
+      "tasks": [],
+      "information_requirements": {
+        "required": [],
+        "optional": [],
+        "derived": []
+      },
+      "constraints": [],
+      "metadata": {
+        "query_id": "2026-05-04T11-49-17-000",
+        "created_at": "2026-05-04T11:49:17.6428233-07:00",
+        "analyzer_model": "template",
+        "execution_time_ms": 0,
+        "confidence": 0,
+        "task_count": 0,
+        "requirement_count": 0,
+        "status": "template",
+        "schema_version": "1.0",
+        "notes": "Template for agent enrichment"
+      }
+    },
+    "3e84fc4a9800ee9ca54a64f48b2ec86e": {
+      "id": "2026-05-04T11-48-13-000",
+      "original_text": "Where is Alice going next week?",
+      "intent": {
+        "primary": "",
+        "secondary": [],
+        "urgency": "medium",
+        "scope": "local",
+        "domain": "",
+        "ambiguities": []
+      },
+      "tasks": [],
+      "information_requirements": {
+        "required": [],
+        "optional": [],
+        "derived": []
+      },
+      "constraints": [],
+      "metadata": {
+        "query_id": "2026-05-04T11-48-13-000",
+        "created_at": "2026-05-04T11:48:13.1255884-07:00",
+        "analyzer_model": "template",
+        "execution_time_ms": 0,
+        "confidence": 0,
+        "task_count": 0,
+        "requirement_count": 0,
+        "status": "template",
+        "schema_version": "1.0",
+        "notes": "Template for agent enrichment"
+      }
+    }
+  },
+  "metadata": {
+    "1d65bdbaa0a2f50ba5f67f96b442ed17": {
+      "prompt_hash": "1d65bdbaa0a2f50ba5f67f96b442ed17",
+      "original_text": "Akane Shiga hasn't commit the future to Lulea yet. Do we know where her future will lies and how is she doing generally?",
+      "cached_at": "2026-05-04 11:41:35.2373838 -0700 PDT m=+3.589782001",
+      "access_count": 4,
+      "last_accessed": "2026-05-04 11:49:05.787357 -0700 PDT m=+1.995807001"
+    },
+    "3e8267b862560e60ac1351518d8adea5": {
+      "prompt_hash": "3e8267b862560e60ac1351518d8adea5",
+      "original_text": "Where is Akane Shiga currently and how is she doing?",
+      "cached_at": "2026-05-04 11:49:17.6428233 -0700 PDT m=+13.851519901",
+      "access_count": 1,
+      "last_accessed": "2026-05-04 11:49:17.6428233 -0700 PDT m=+13.851519901"
+    },
+    "3e84fc4a9800ee9ca54a64f48b2ec86e": {
+      "prompt_hash": "3e84fc4a9800ee9ca54a64f48b2ec86e",
+      "original_text": "Where is Alice going next week?",
+      "cached_at": "2026-05-04 11:48:13.1255884 -0700 PDT m=+401.486317101",
+      "access_count": 1,
+      "last_accessed": "2026-05-04 11:48:13.1255884 -0700 PDT m=+401.486317101"
+    }
+  }
+}

@@ -62,7 +62,7 @@ func main() {
 			tools := []toolDefinition{
 				{
 					Name:        "parse_query",
-					Description: "Parse a free-form prompt into a structured Query with intent, tasks, requirements, and constraints. Transforms user requests into actionable plans with dependencies and information requirements.",
+					Description: "Parse a free-form prompt into a structured Query template for agent enrichment.",
 					InputSchema: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{
@@ -129,7 +129,7 @@ func main() {
 				},
 				{
 					Name:        "self_build",
-					Description: "Self-rebuild: Recompile devtools-mcp from source, kill the running server, and restart VS Code. Use this after modifying devtools-mcp code to test changes immediately. No parameters required.",
+					Description: "Provides instructions to manually rebuild devtools-mcp from source and restart VS Code. Use after modifying devtools-mcp code to test changes.",
 					InputSchema: map[string]interface{}{
 						"type": "object",
 						"properties": map[string]interface{}{},

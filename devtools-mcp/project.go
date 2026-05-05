@@ -211,66 +211,93 @@ func handleParseQuery(writer *bufio.Writer, id interface{}, args map[string]inte
 
 	responseText := fmt.Sprintf("Query ID: %s\n\nTemplate (fill in the fields below):\n%s", queryID, string(templateJSON))
 
-	discoveryInstructions := `ENRICH THIS QUERY TEMPLATE BY ANALYZING THE PROMPT:
+	// Create enrichment todo list with embedded guidance - todos are self-governing
+	enrichmentTodos := []map[string]interface{}{
+		{
+			"id":     1,
+			"title":  "Analyze intent",
+			"status": "not-started",
+			"description": "Fill intent.primary, intent.domain (software/personal/research/planning/writing/business), intent.urgency (low/medium/high/critical), intent.scope (local/project/team/org), and intent.ambiguities (list unclear aspects)",
+		},
+		{
+			"id":     2,
+			"title":  "Populate required information requirements",
+			"status": "not-started",
+			"description": "For each critical piece of info needed: populate id, name, description, type, sources (array), search_hints (specific queries), inference_strategy (what to assume if not found), confidence_if_missing (high/medium/low). See req_example in template for structure.",
+		},
+		{
+			"id":     3,
+			"title":  "Identify optional information requirements",
+			"status": "not-started",
+			"description": "Add nice-to-have info to optional array using same field structure as required (sources, search_hints, inference_strategy, etc.)",
+		},
+		{
+			"id":     4,
+			"title":  "Identify derived information requirements",
+			"status": "not-started",
+			"description": "Add derived info to derived array. For each: specify derivable_from (list IDs of prerequisite requirements it depends on), and populate all guidance fields.",
+		},
+		{
+			"id":     5,
+			"title":  "Analyze constraints & risks",
+			"status": "not-started",
+			"description": "Populate constraints array with: limitations, restrictions, permissions needed, known risks that could prevent completion",
+		},
+		{
+			"id":     6,
+			"title":  "Update resolution strategy",
+			"status": "not-started",
+			"description": "Set resolution_strategy.order to array of requirement IDs in priority order (critical first). Later requirements depend on earlier ones.",
+		},
+		{
+			"id":     7,
+			"title":  "Save enriched query",
+			"status": "not-started",
+			"description": "Mark all todos as completed. Save enriched JSON (entire query object + todos array) to queries_cache/{query_id}.json",
+		},
+	}
 
-IMPORTANT: Each information requirement MUST include these guidance fields:
-- sources: Array of where to search (web_search, linkedin, twitter, github, knowledge_base, etc.)
-- search_hints: Specific search queries or platform guidance (e.g., "Search 'term1' on LinkedIn" or "Check 'source2' documentation")
-- inference_strategy: What to assume if info cannot be found (include fallback logic)
-- confidence_if_missing: Confidence without this data - high/medium/low
-- derivable_from: For derived requirements, list IDs of prerequisite requirements
+	// Build enhanced instructions emphasizing 7-step workflow
+	enhancedInstructions := `========================================
+YOUR WORKFLOW: CREATE A 7-STEP TODO LIST
+========================================
 
-See the 'required' array for an example structure (req_example) showing all fields populated correctly.
+You have received a Query template to enrich. Use the manage_todo_list tool to create and track these 7 steps:
 
-DISCOVERY QUESTIONS:
+**STEP 1:** Analyze intent (primary goal, domain, urgency, scope, ambiguities)
+**STEP 2:** Populate required information requirements (critical data needed)
+**STEP 3:** Identify optional information requirements (nice-to-have data)
+**STEP 4:** Identify derived information requirements (data derivable from requirements)
+**STEP 5:** Analyze constraints & risks (limitations, permissions, risks)
+**STEP 6:** Update resolution strategy (order requirements by priority)
+**STEP 7:** Save enriched query (use create_file tool to save enriched template + todos to queries_cache/{query_id}.json)
 
-1. INTENT ANALYSIS:
-   - What is the user fundamentally trying to accomplish? (fill: intent.primary)
-   - What domain does this belong to? (software/personal/research/planning/writing/business/other)
-   - How urgent is this? (low/medium/high/critical)
-   - What is the scope? (local/project/team/organization)
-   - What ambiguities or unclear aspects exist in the prompt?
+========================================
 
-2. TASK BREAKDOWN:
-   - What are the concrete steps needed to address this?
-   - What must happen first? What depends on what?
-   - Can any tasks run in parallel?
-   - What is the expected output of each task?
+WORKFLOW GUIDANCE:
+1. Call manage_todo_list to create a list with all 7 steps
+2. Mark each step IN-PROGRESS as you work
+3. Mark each step COMPLETED immediately after finishing
+4. Let your todo list track progress through the entire workflow
+5. In step 7, use create_file tool to persist enriched template and todos
 
-3. INFORMATION REQUIREMENTS (WITH SEARCH GUIDANCE):
-   - What information is absolutely required to proceed? (required)
-     * For each requirement: populate ALL guidance fields (sources, search_hints, inference_strategy, confidence_if_missing)
-   - What information would be nice to have but isn't critical? (optional)
-   - What information can be derived/inferred from other data? (derived)
-     * For derived info: specify which requirements it depends on (derivable_from)
-
-4. CONSTRAINTS & RISKS:
-   - What limitations or restrictions apply?
-   - What could prevent successful completion?
-   - What permissions or access might be needed?
-   - What are the known risks?
-
-INSTRUCTIONS:
-1. Use semantic understanding, not just keyword matching
-2. For EVERY information requirement, populate search_hints with specific queries
-3. For EVERY requirement, include inference_strategy - what to assume if not found
-4. Prioritize requirements by criticality (required vs optional vs derived)
-5. Update resolution_strategy.order with the priority order for filling gaps
-6. Fill in ALL fields in the template based on your analysis
-7. Save the enriched JSON to {workspace_root}/.cache/queries/{query_id}.json`
+Reference structure is available in the template (req_example shows required info requirements format).`
 
 	sendResult(writer, id, map[string]interface{}{
 		"content": []map[string]interface{}{
 			{
 				"type": "text",
+				"text": enhancedInstructions,
+			},
+			{
+				"type": "text",
 				"text": responseText,
 			},
 		},
-		"status":       "pending_enrichment",
-		"query_id":     queryID,
-		"prompt":       prompt,
-		"template":     string(templateJSON),
-		"cache_dir":    ".cache/queries",
-		"instructions": discoveryInstructions,
+		"status":          "pending_enrichment",
+		"query_id":        queryID,
+		"prompt":          prompt,
+		"template":        string(templateJSON),
+		"todos":           enrichmentTodos,
 	})
 }

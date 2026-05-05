@@ -61,7 +61,7 @@ func main() {
 		case "tools/list":
 			tools := []toolDefinition{
 				{
-					Name:        "parse_query",
+					Name:        "structure_prompt",
 					Description: "Parse a free-form prompt into a structured Query template for agent enrichment.",
 					InputSchema: map[string]interface{}{
 						"type": "object",
@@ -146,8 +146,8 @@ func main() {
 			}
 
 			switch params.Name {
-			case "parse_query":
-				handleParseQuery(writer, id, params.Arguments)
+			case "structure_prompt":
+			handleParseQuery(writer, id, params.Arguments)
 			case "project_structure":
 				handleGetProjectStructure(writer, id, params.Arguments)
 			case "git_status":
